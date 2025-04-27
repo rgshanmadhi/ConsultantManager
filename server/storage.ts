@@ -60,7 +60,7 @@ export class DatabaseStorage implements IStorage {
       .insert(users)
       .values({
         ...insertUser,
-        trialEndDate,
+        trialEndDate: trialEndDate.toISOString(),
       })
       .returning();
     return user;

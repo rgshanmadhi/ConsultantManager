@@ -2,6 +2,11 @@ import { pgTable, text, serial, timestamp, varchar, boolean, date } from "drizzl
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Define types first to use in tables
+export type MoodType = "Happy" | "Neutral" | "Sad" | "Angry" | "Tired";
+export type SentimentType = "Positive" | "Neutral" | "Negative";
+export type SubscriptionStatus = "active" | "canceled" | "past_due";
+
 // User schema with subscription fields
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -11,7 +16,7 @@ export const users = pgTable("users", {
   name: text("name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   isSubscribed: boolean("is_subscribed").default(false).notNull(),
-  trialEndDate: date("trial_end_date"),
+  trialEndDate: text("trial_end_date"), // Store as ISO string
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -25,7 +30,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: serial("user_id").references(() => users.id).notNull(),
-  status: varchar("status", { length: 20 }).notNull().$type<"active" | "canceled" | "past_due">(),
+  status: varchar("status", { length: 20 }).notNull().$type<SubscriptionStatus>(),
   currentPeriodStart: timestamp("current_period_start").notNull(),
   currentPeriodEnd: timestamp("current_period_end").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -33,6 +38,7 @@ export const subscriptions = pgTable("subscriptions", {
 
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
   id: true,
+  createdAt: true,
 });
 
 // Mental health entry schema
@@ -66,5 +72,9 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertEntry = z.infer<typeof insertEntrySchema>;
 export type Entry = typeof entries.$inferSelect;
 
-export type MoodType = "Happy" | "Neutral" | "Sad" | "Angry" | "Tired";
-export type SentimentType = "Positive" | "Neutral" | "Negative";
+// Add session type for authentication
+declare module 'express-session' {
+  interface SessionData {
+    userId: number;
+  }
+}
