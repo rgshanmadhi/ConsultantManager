@@ -150,22 +150,43 @@ export default function Dashboard() {
                     <span className="text-sm">Journal</span>
                   </Button>
                 </Link>
-                <Link href="#calendar" className="col-span-1">
+                <button 
+                  onClick={() => {
+                    const calendarElement = document.getElementById('calendar');
+                    if (calendarElement) {
+                      calendarElement.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }} 
+                  className="col-span-1"
+                >
                   <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center space-y-2 animate-button" size="lg">
                     <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                       <span className="text-xl">📅</span>
                     </div>
                     <span className="text-sm">Calendar</span>
                   </Button>
-                </Link>
-                <div className="col-span-1">
+                </button>
+                <button 
+                  onClick={() => {
+                    const insightsElement = document.getElementById('calendar');
+                    if (insightsElement) {
+                      insightsElement.scrollIntoView({ behavior: 'smooth' });
+                      // Select trends tab
+                      const trendsTabButton = document.querySelector('[role="tablist"] [value="trends"]') as HTMLElement;
+                      if (trendsTabButton) {
+                        trendsTabButton.click();
+                      }
+                    }
+                  }}
+                  className="col-span-1"
+                >
                   <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center space-y-2 animate-button" size="lg">
                     <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                       <span className="text-xl">📊</span>
                     </div>
                     <span className="text-sm">Insights</span>
                   </Button>
-                </div>
+                </button>
                 <Link href="/subscription" className="col-span-1">
                   <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center space-y-2 animate-button" size="lg">
                     <div className="h-10 w-10 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">

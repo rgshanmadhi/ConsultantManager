@@ -134,26 +134,22 @@ export default function JournalPage() {
           </div>
           
           <div className="w-auto">
-            <TabsList className="grid grid-cols-2 w-[200px]">
-              <TabsTrigger 
-                value="write" 
-                className="flex items-center gap-1"
+            <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+              <button 
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-1 ${journalTab === "write" ? "bg-background text-foreground shadow-sm" : ""}`}
                 onClick={() => setJournalTab("write")}
-                data-state={journalTab === "write" ? "active" : ""}
               >
                 <PenLine size={16} />
                 <span>Write</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="history" 
-                className="flex items-center gap-1"
+              </button>
+              <button 
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-1 ${journalTab === "history" ? "bg-background text-foreground shadow-sm" : ""}`}
                 onClick={() => setJournalTab("history")}
-                data-state={journalTab === "history" ? "active" : ""}
               >
                 <History size={16} />
                 <span>History</span>
-              </TabsTrigger>
-            </TabsList>
+              </button>
+            </div>
           </div>
         </div>
         

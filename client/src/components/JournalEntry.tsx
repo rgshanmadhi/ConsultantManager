@@ -259,32 +259,26 @@ export default function JournalEntry({ mood, onSave, isSubmitting }: JournalEntr
 
         <div className="p-1">
           <div className="flex items-center border-b border-gray-200 dark:border-gray-800">
-            <Tabs 
-              value={journalMode} 
-              onValueChange={(v) => setJournalMode(v as "write" | "format" | "settings")}
-              className="w-full"
+            <div className="w-full border-b border-gray-200 dark:border-gray-700 flex">
+            <button 
+              className={`px-4 py-2 border-b-2 ${journalMode === 'write' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'} transition-colors`}
+              onClick={() => setJournalMode('write')}
             >
-              <TabsList className="w-full justify-start bg-transparent border-b-0 p-0">
-                <TabsTrigger 
-                  value="write" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                >
-                  Write
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="format"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                >
-                  Format
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="settings"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                >
-                  Settings
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+              Write
+            </button>
+            <button 
+              className={`px-4 py-2 border-b-2 ${journalMode === 'format' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'} transition-colors`}
+              onClick={() => setJournalMode('format')}
+            >
+              Format
+            </button>
+            <button 
+              className={`px-4 py-2 border-b-2 ${journalMode === 'settings' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'} transition-colors`}
+              onClick={() => setJournalMode('settings')}
+            >
+              Settings
+            </button>
+          </div>
 
             <Button
               variant="ghost"
@@ -297,190 +291,196 @@ export default function JournalEntry({ mood, onSave, isSubmitting }: JournalEntr
             </Button>
           </div>
 
-          <TabsContent value="write" className="pt-2 pb-0 px-0 mt-0">
-            {showPrompts && mood && (
-              <div className="mb-3 bg-muted/50 p-3 rounded-md animate-in fade-in duration-200">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-medium">Writing Prompts</h3>
+          {journalMode === 'write' && (
+            <div className="pt-2 pb-0 px-0 mt-0">
+              {showPrompts && mood && (
+                <div className="mb-3 bg-muted/50 p-3 rounded-md animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-medium">Writing Prompts</h3>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6" 
+                      onClick={() => setShowPrompts(false)}
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {getPromptsForMood().map((prompt, i) => (
+                      <Button
+                        key={i}
+                        variant="outline"
+                        className="h-auto py-2 px-3 justify-start text-sm font-normal text-left whitespace-normal hover:bg-muted"
+                        onClick={() => usePrompt(prompt)}
+                      >
+                        {prompt}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="relative">
+                <Textarea
+                  ref={textareaRef}
+                  className={`w-full border-0 p-4 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[${editorHeight}px] resize-y ${fontFamily} ${textAlign}`}
+                  placeholder="Write about your day, thoughts, and feelings..."
+                  value={journalText}
+                  onChange={(e) => setJournalText(e.target.value)}
+                  maxLength={maxLength}
+                />
+                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/60 px-2 py-1 rounded-md backdrop-blur-sm">
+                  {calculateCharCount(journalText, maxLength)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {journalMode === 'format' && (
+            <div className="p-2 mt-0">
+              <div className="flex flex-wrap gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" onClick={() => formatText("bold")}>
+                        <Bold size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Bold</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" onClick={() => formatText("italic")}>
+                        <Italic size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Italic</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" onClick={() => formatText("heading")}>
+                        <Heading2 size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Heading</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" onClick={() => formatText("list")}>
+                        <List size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>List</TooltipContent>
+                  </Tooltip>
+                  
+                  <div className="border-l h-8 mx-1 border-gray-200 dark:border-gray-800"></div>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" disabled onClick={() => insertTextAtCursor("[Image Link]")}>
+                        <Image size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Add Image (Premium)</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" disabled onClick={() => insertTextAtCursor("[Link](https://)")}>
+                        <Link2 size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Add Link (Premium)</TooltipContent>
+                  </Tooltip>
+                  
+                  <div className="border-l h-8 mx-1 border-gray-200 dark:border-gray-800"></div>
+                  
+                  <ToggleGroup type="single" value={textAlign} onValueChange={(v) => setTextAlign(v || "text-left")}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem value="text-left">
+                          <AlignLeft size={16} />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent>Align Left</TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem value="text-center">
+                          <AlignCenter size={16} />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent>Align Center</TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem value="text-right">
+                          <AlignRight size={16} />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent>Align Right</TooltipContent>
+                    </Tooltip>
+                  </ToggleGroup>
+                </TooltipProvider>
+              </div>
+
+              <div className="mt-4">
+                <label className="text-sm font-medium">Font Family</label>
+                <Select value={fontFamily} onValueChange={setFontFamily}>
+                  <SelectTrigger className="mt-1 w-full">
+                    <SelectValue placeholder="Select a font" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fontOptions.map((font) => (
+                      <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {journalMode === 'settings' && (
+            <div className="p-2 mt-0">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Editor Height</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input 
+                      type="range" 
+                      min="100" 
+                      max="500" 
+                      value={editorHeight} 
+                      onChange={(e) => setEditorHeight(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                    <span className="text-xs text-muted-foreground w-12 text-right">{editorHeight}px</span>
+                  </div>
+                </div>
+                
+                <div>
                   <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6" 
-                    onClick={() => setShowPrompts(false)}
+                    variant="outline" 
+                    className="w-full justify-between"
+                    disabled
                   >
-                    <span className="sr-only">Close</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <div className="flex items-center gap-2">
+                      <Settings2 size={16} />
+                      <span>Advanced Editor Options</span>
+                    </div>
+                    <span className="text-xs bg-muted px-2 py-0.5 rounded">Premium</span>
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 gap-2">
-                  {getPromptsForMood().map((prompt, i) => (
-                    <Button
-                      key={i}
-                      variant="outline"
-                      className="h-auto py-2 px-3 justify-start text-sm font-normal text-left whitespace-normal hover:bg-muted"
-                      onClick={() => usePrompt(prompt)}
-                    >
-                      {prompt}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div className="relative">
-              <Textarea
-                ref={textareaRef}
-                className={`w-full border-0 p-4 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[${editorHeight}px] resize-y ${fontFamily} ${textAlign}`}
-                placeholder="Write about your day, thoughts, and feelings..."
-                value={journalText}
-                onChange={(e) => setJournalText(e.target.value)}
-                maxLength={maxLength}
-              />
-              <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/60 px-2 py-1 rounded-md backdrop-blur-sm">
-                {calculateCharCount(journalText, maxLength)}
               </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="format" className="p-2 mt-0">
-            <div className="flex flex-wrap gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={() => formatText("bold")}>
-                      <Bold size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Bold</TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={() => formatText("italic")}>
-                      <Italic size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Italic</TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={() => formatText("heading")}>
-                      <Heading2 size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Heading</TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={() => formatText("list")}>
-                      <List size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>List</TooltipContent>
-                </Tooltip>
-                
-                <div className="border-l h-8 mx-1 border-gray-200 dark:border-gray-800"></div>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" disabled onClick={() => insertTextAtCursor("[Image Link]")}>
-                      <Image size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Add Image (Premium)</TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" disabled onClick={() => insertTextAtCursor("[Link](https://)")}>
-                      <Link2 size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Add Link (Premium)</TooltipContent>
-                </Tooltip>
-                
-                <div className="border-l h-8 mx-1 border-gray-200 dark:border-gray-800"></div>
-                
-                <ToggleGroup type="single" value={textAlign} onValueChange={(v) => setTextAlign(v || "text-left")}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <ToggleGroupItem value="text-left">
-                        <AlignLeft size={16} />
-                      </ToggleGroupItem>
-                    </TooltipTrigger>
-                    <TooltipContent>Align Left</TooltipContent>
-                  </Tooltip>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <ToggleGroupItem value="text-center">
-                        <AlignCenter size={16} />
-                      </ToggleGroupItem>
-                    </TooltipTrigger>
-                    <TooltipContent>Align Center</TooltipContent>
-                  </Tooltip>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <ToggleGroupItem value="text-right">
-                        <AlignRight size={16} />
-                      </ToggleGroupItem>
-                    </TooltipTrigger>
-                    <TooltipContent>Align Right</TooltipContent>
-                  </Tooltip>
-                </ToggleGroup>
-              </TooltipProvider>
-            </div>
-
-            <div className="mt-4">
-              <label className="text-sm font-medium">Font Family</label>
-              <Select value={fontFamily} onValueChange={setFontFamily}>
-                <SelectTrigger className="mt-1 w-full">
-                  <SelectValue placeholder="Select a font" />
-                </SelectTrigger>
-                <SelectContent>
-                  {fontOptions.map((font) => (
-                    <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="settings" className="p-2 mt-0">
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Editor Height</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input 
-                    type="range" 
-                    min="100" 
-                    max="500" 
-                    value={editorHeight} 
-                    onChange={(e) => setEditorHeight(parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                  <span className="text-xs text-muted-foreground w-12 text-right">{editorHeight}px</span>
-                </div>
-              </div>
-              
-              <div>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-between"
-                  disabled
-                >
-                  <div className="flex items-center gap-2">
-                    <Settings2 size={16} />
-                    <span>Advanced Editor Options</span>
-                  </div>
-                  <span className="text-xs bg-muted px-2 py-0.5 rounded">Premium</span>
-                </Button>
-              </div>
-            </div>
-          </TabsContent>
+          )}
         </div>
         
         <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center">
