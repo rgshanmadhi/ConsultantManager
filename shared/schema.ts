@@ -1,32 +1,52 @@
-import { pgTable, text, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, varchar, boolean, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User schema (kept from original)
+// User schema with subscription fields
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  isSubscribed: boolean("is_subscribed").default(false).notNull(),
+  trialEndDate: date("trial_end_date"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  email: true,
+  name: true,
+});
+
+// Subscription schema for handling payments and subscriptions
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: serial("user_id").references(() => users.id).notNull(),
+  status: varchar("status", { length: 20 }).notNull().$type<"active" | "canceled" | "past_due">(),
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
 });
 
 // Mental health entry schema
 export const entries = pgTable("entries", {
   id: serial("id").primaryKey(),
-  mood: varchar("mood", { length: 20 }).notNull().$type<"Happy" | "Neutral" | "Sad" | "Angry" | "Tired">(),
+  mood: varchar("mood", { length: 20 }).notNull().$type<MoodType>(),
   journalEntry: text("journal_entry").notNull(),
-  sentiment: varchar("sentiment", { length: 20 }).$type<"Positive" | "Neutral" | "Negative">(),
+  sentiment: varchar("sentiment", { length: 20 }).$type<SentimentType>(),
   date: timestamp("date").defaultNow().notNull(),
-  userId: serial("user_id").references(() => users.id),
+  userId: serial("user_id").references(() => users.id).notNull(),
 });
 
 export const insertEntrySchema = createInsertSchema(entries).omit({
   id: true,
-  userId: true,
 });
 
 export const activitiesMapping = {
@@ -39,6 +59,9 @@ export const activitiesMapping = {
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
 
 export type InsertEntry = z.infer<typeof insertEntrySchema>;
 export type Entry = typeof entries.$inferSelect;
