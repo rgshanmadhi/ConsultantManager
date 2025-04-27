@@ -11,7 +11,7 @@ import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate, getMoodEmoji, getSentimentIcon } from "@/lib/utils";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 
@@ -133,69 +133,79 @@ export default function JournalPage() {
             <h1 className="text-3xl font-bold gradient-heading">Journal</h1>
           </div>
           
-          <Tabs value={journalTab} onValueChange={(v) => setJournalTab(v as "write" | "history")} className="w-auto">
+          <div className="w-auto">
             <TabsList className="grid grid-cols-2 w-[200px]">
-              <TabsTrigger value="write" className="flex items-center gap-1">
+              <TabsTrigger 
+                value="write" 
+                className="flex items-center gap-1"
+                onClick={() => setJournalTab("write")}
+                data-state={journalTab === "write" ? "active" : ""}
+              >
                 <PenLine size={16} />
                 <span>Write</span>
               </TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center gap-1">
+              <TabsTrigger 
+                value="history" 
+                className="flex items-center gap-1"
+                onClick={() => setJournalTab("history")}
+                data-state={journalTab === "history" ? "active" : ""}
+              >
                 <History size={16} />
                 <span>History</span>
               </TabsTrigger>
             </TabsList>
-          </Tabs>
+          </div>
         </div>
         
-        <TabsContent value="write" className="m-0 mt-4 space-y-6">
-          {/* Mood Tracker */}
-          <Card className="hover-card gradient-card">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl">How are you feeling today?</CardTitle>
-                  <CardDescription>Select your current mood to help track patterns over time</CardDescription>
+        {journalTab === "write" ? (
+          <div className="mt-4 space-y-6">
+            {/* Mood Tracker */}
+            <Card className="hover-card gradient-card">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl">How are you feeling today?</CardTitle>
+                    <CardDescription>Select your current mood to help track patterns over time</CardDescription>
+                  </div>
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white">
+                    <span className="text-sm">🌈</span>
+                  </div>
                 </div>
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white">
-                  <span className="text-sm">🌈</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <MoodTracker 
-                selectedMood={selectedMood} 
-                onMoodSelect={handleMoodSelect} 
+              </CardHeader>
+              <CardContent>
+                <MoodTracker 
+                  selectedMood={selectedMood} 
+                  onMoodSelect={handleMoodSelect} 
+                />
+              </CardContent>
+            </Card>
+            
+            {/* Journal Entry */}
+            <div>
+              <JournalEntry 
+                mood={selectedMood} 
+                onSave={handleSaveEntry}
+                isSubmitting={createEntryMutation.isPending}
               />
-            </CardContent>
-          </Card>
-          
-          {/* Journal Entry */}
-          <div>
-            <JournalEntry 
-              mood={selectedMood} 
-              onSave={handleSaveEntry}
-              isSubmitting={createEntryMutation.isPending}
-            />
+            </div>
+            
+            {/* Quick Tips */}
+            <Card className="bg-muted/50 border-dashed border-muted">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Journal Tips</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Write freely without judgment</li>
+                  <li>Try to journal at the same time each day</li>
+                  <li>Include both challenges and positive moments</li>
+                  <li>Use writing prompts when you're not sure what to write about</li>
+                </ul>
+              </CardContent>
+            </Card>
           </div>
-          
-          {/* Quick Tips */}
-          <Card className="bg-muted/50 border-dashed border-muted">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Journal Tips</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              <ul className="list-disc list-inside space-y-1">
-                <li>Write freely without judgment</li>
-                <li>Try to journal at the same time each day</li>
-                <li>Include both challenges and positive moments</li>
-                <li>Use writing prompts when you're not sure what to write about</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="history" className="m-0 mt-4">
-          <Card>
+        ) : (
+          <Card className="mt-4">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -268,8 +278,8 @@ export default function JournalPage() {
                                   
                                   <div className="flex items-center gap-2">
                                     <div className="bg-muted px-2 py-0.5 rounded-full text-xs flex items-center gap-1" title="Sentiment">
-                                      <span className="text-xs">{getSentimentIcon(entry.sentiment)}</span>
-                                      <span>{entry.sentiment}</span>
+                                      <span className="text-xs">{getSentimentIcon(entry.sentiment || "Neutral")}</span>
+                                      <span>{entry.sentiment || "Neutral"}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -289,7 +299,7 @@ export default function JournalPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
       </div>
     </div>
   );
