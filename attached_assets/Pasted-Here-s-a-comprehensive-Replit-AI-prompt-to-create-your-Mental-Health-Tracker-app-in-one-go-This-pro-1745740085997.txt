@@ -1,0 +1,108 @@
+Here's a comprehensive Replit AI prompt to create your Mental Health Tracker app in one go. This prompt includes all the specifications for both frontend (React) and backend (Node.js/Express with MongoDB):
+
+---
+
+**Replit AI Prompt:**
+
+"Create a complete Mental Health Tracker application with the following specifications:
+
+**1. Tech Stack:**
+- Frontend: React with Material-UI components
+- Backend: Node.js/Express
+- Database: MongoDB (using Mongoose)
+- Deployment: Ready for Replit hosting
+
+**2. Features:**
+
+**Frontend Components:**
+- Mood tracker with emoji selection (😊 Happy, 😐 Neutral, 😢 Sad, 😠 Angry, 😴 Tired)
+- Journal entry component with text area
+- Calendar view to display past entries
+- Activity recommendations based on mood
+- Responsive design using Material-UI
+
+**Backend API Endpoints:**
+- POST /api/entries - Save new journal entry with mood
+- GET /api/entries - Retrieve all entries
+- GET /api/entries/:date - Get entries by date
+- Basic sentiment analysis of journal text
+
+**3. File Structure:**
+```
+/
+├── client/ (React frontend)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── MoodTracker.jsx
+│   │   │   ├── JournalEntry.jsx
+│   │   │   ├── CalendarView.jsx
+│   │   ├── App.js
+│   │   └── index.js
+├── server/ (Node.js backend)
+│   ├── models/
+│   │   └── Entry.js
+│   ├── routes/
+│   │   └── entries.js
+│   └── server.js
+├── .env (for environment variables)
+└── package.json
+```
+
+**4. Specific Requirements:**
+- Use React hooks for state management
+- Implement proper error handling
+- Add loading states for API calls
+- Store entries with: mood, journal text, date, and auto-generated sentiment
+- Show mood trends over time
+- Include a dark/light mode toggle
+
+**5. Database Schema (Entry Model):**
+```javascript
+{
+  mood: { type: String, enum: ["Happy", "Neutral", "Sad", "Angry", "Tired"] },
+  journalEntry: String,
+  sentiment: { type: String, enum: ["Positive", "Neutral", "Negative"] },
+  date: { type: Date, default: Date.now }
+}
+```
+
+**6. Sample Data Structure for Frontend:**
+```javascript
+{
+  id: 1,
+  mood: "Happy",
+  emoji: "😊",
+  journalEntry: "Had a great day today!",
+  sentiment: "Positive",
+  date: "2023-07-15",
+  activities: ["Share your happiness", "Practice gratitude"]
+}
+```
+
+**7. Additional Instructions:**
+- Create a working prototype with all basic features
+- Include clear comments explaining key functionality
+- Make sure all components are properly connected
+- Add basic styling with Material-UI
+- Ensure the app works on Replit's hosting environment
+
+**Important Notes:**
+1. Use Replit's built-in MongoDB database
+2. Configure the project to run with a single 'Run' button
+3. Include all necessary package dependencies
+4. Add sample data for demonstration purposes"
+
+---
+
+### How to Use This Prompt:
+1. Go to Replit and create a new "Node.js" repl
+2. Open the AI assistant (usually a chat bubble icon)
+3. Paste this entire prompt
+4. The AI will generate the complete application structure
+
+### If You Need Modifications:
+- For a simpler version: Add "Create a minimal version without authentication"
+- For additional features: Specify "Add user authentication using JWT"
+- For different styling: Add "Use Tailwind CSS instead of Material-UI"
+
+Would you like me to break this down into smaller prompts or add any specific features to the request?
