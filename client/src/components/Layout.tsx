@@ -13,7 +13,8 @@ import {
   Moon, 
   Sun, 
   User, 
-  CreditCard
+  CreditCard,
+  Gamepad2
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -39,6 +40,7 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { name: "Dashboard", path: "/", icon: <Home className="h-5 w-5" /> },
     { name: "Journal", path: "/journal", icon: <BookOpen className="h-5 w-5" /> },
+    { name: "Games", path: "/games", icon: <Gamepad2 className="h-5 w-5" /> },
     { name: "Calendar", path: "/calendar", icon: <Calendar className="h-5 w-5" /> },
     { name: "Analytics", path: "/analytics", icon: <LineChart className="h-5 w-5" /> },
   ];

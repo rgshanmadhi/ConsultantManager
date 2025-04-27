@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wind, Brain, PenTool, Dices } from "lucide-react";
+import { Wind, Brain, PenTool } from "lucide-react";
 import BreathingExercise from "./BreathingExercise";
 import MemoryGame from "./MemoryGame";
 import ZenDrawing from "./ZenDrawing";

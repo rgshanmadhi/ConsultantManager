@@ -47,6 +47,14 @@ function Router() {
         </ProtectedRoute>
       </Route>
       
+      <Route path="/games">
+        <ProtectedRoute>
+          <Layout>
+            <GamesPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      
       {/* 404 route */}
       <Route component={NotFound} />
     </Switch>
