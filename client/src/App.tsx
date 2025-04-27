@@ -11,6 +11,7 @@ import Layout from "@/components/Layout";
 // Pages
 import Dashboard from "@/pages/Dashboard";
 import JournalPage from "@/pages/journal-page";
+import GamesPage from "@/pages/games-page";
 import AuthPage from "@/pages/auth-page";
 import SubscriptionPage from "@/pages/subscription-page";
 import NotFound from "@/pages/not-found";
