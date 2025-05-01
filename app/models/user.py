@@ -1,7 +1,11 @@
+"""
+User model for the Serene application
+"""
 from datetime import datetime, timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from app import db
+
+from app import db, login_manager
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -22,9 +26,13 @@ class User(UserMixin, db.Model):
     
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
-        # Set trial end date to 30 days from registration
         if self.trial_end_date is None:
+            # Default trial period is 30 days
             self.trial_end_date = datetime.utcnow() + timedelta(days=30)
+        
+        # Handle password setting if provided
+        if 'password' in kwargs:
+            self.password = kwargs['password']
     
     @property
     def password(self):
@@ -47,15 +55,16 @@ class User(UserMixin, db.Model):
             'username': self.username,
             'email': self.email,
             'name': self.name,
-            'isSubscribed': self.is_subscribed,
-            'isInTrial': self.is_in_trial,
-            'trialEndDate': self.trial_end_date.isoformat() if self.trial_end_date else None,
-            'createdAt': self.created_at.isoformat()
+            'is_subscribed': self.is_subscribed,
+            'is_in_trial': self.is_in_trial,
+            'trial_end_date': self.trial_end_date.isoformat() if self.trial_end_date else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
     def __repr__(self):
         return f'<User {self.username}>'
 
+@login_manager.user_loader
 def load_user(user_id):
     """User loader function for Flask-Login"""
     return User.query.get(int(user_id))
