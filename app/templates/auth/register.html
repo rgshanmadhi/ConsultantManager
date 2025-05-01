@@ -2,58 +2,174 @@
 
 {% block title %}Register - Serene{% endblock %}
 
+{% block styles %}
+<style>
+    .auth-container {
+        min-height: calc(100vh - 300px);
+        display: flex;
+        align-items: center;
+    }
+    .auth-card {
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    .auth-form {
+        padding: 2.5rem;
+    }
+    .auth-image {
+        background: linear-gradient(45deg, #4f46e5, #8b5cf6);
+        color: white;
+        padding: 2.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .gradient-text {
+        background: linear-gradient(90deg, #4f46e5, #8b5cf6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow-sm">
-                <div class="card-body p-5">
-                    <h2 class="text-center mb-4 text-primary fw-bold">Create an Account</h2>
+<div class="auth-container">
+    <div class="container">
+        <div class="row g-0 shadow auth-card">
+            <div class="col-lg-6">
+                <div class="auth-form">
+                    <h1 class="mb-4 fw-bold gradient-text">Create Account</h1>
+                    <p class="lead mb-4">Join Serene and start your mental wellness journey today.</p>
                     
                     <form method="POST" action="{{ url_for('auth.register') }}">
+                        {{ form.csrf_token }}
+                        
                         <div class="mb-3">
                             <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" name="username" required autofocus>
+                            {{ form.username(class="form-control", placeholder="Choose a username") }}
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.username.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3">
                             <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
+                            {{ form.email(class="form-control", placeholder="Enter your email") }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3">
-                            <label for="name" class="form-label">Full Name (Optional)</label>
-                            <input type="text" class="form-control" id="name" name="name">
+                            <label for="name" class="form-label">Name (Optional)</label>
+                            {{ form.name(class="form-control", placeholder="Enter your full name") }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            {{ form.password(class="form-control", placeholder="Create a password") }}
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-4">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                            <label for="confirm_password" class="form-label">Confirm Password</label>
+                            {{ form.confirm_password(class="form-control", placeholder="Confirm your password") }}
+                            {% if form.confirm_password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.confirm_password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg">Register</button>
+                        <div class="mb-4 form-check">
+                            {{ form.accept_tos(class="form-check-input") }}
+                            <label class="form-check-label" for="accept_tos">
+                                I agree to the <a href="#" class="text-primary">Terms of Service</a> and <a href="#" class="text-primary">Privacy Policy</a>
+                            </label>
+                            {% if form.accept_tos.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.accept_tos.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid mb-4">
+                            <button type="submit" class="btn btn-primary btn-lg">Create Account</button>
+                        </div>
+                        
+                        <div class="text-center">
+                            <p>Already have an account? <a href="{{ url_for('auth.login') }}" class="text-primary">Sign in</a></p>
                         </div>
                     </form>
-                    
-                    <div class="text-center mt-4">
-                        <p>Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
-                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="col-lg-5 d-none d-lg-block">
-            <div class="h-100 d-flex flex-column justify-content-center">
-                <h2 class="display-6 fw-bold text-primary mb-3">Join Serene Today</h2>
-                <p class="lead">Start your journey to better mental health with Serene's comprehensive tracking and wellness tools.</p>
-                <ul class="list-unstyled mt-4">
-                    <li class="mb-2">✓ 30-day free trial</li>
-                    <li class="mb-2">✓ Personalized mood insights</li>
-                    <li class="mb-2">✓ Secure and private journaling</li>
-                    <li class="mb-2">✓ Interactive stress-relief games</li>
-                    <li>✓ Daily mood tracking and analysis</li>
-                </ul>
+            <div class="col-lg-6 d-none d-lg-block">
+                <div class="auth-image h-100">
+                    <h2 class="mb-4">Start Your Wellness Journey</h2>
+                    <p class="mb-4">Serene helps you monitor your mood, journal your thoughts, and improve your mental well-being through insights and activities.</p>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                    <path d="M12.331 9.5a1 1 0 0 1 0 1A4.998 4.998 0 0 1 8 13a4.998 4.998 0 0 1-4.33-2.5A1 1 0 0 1 4.535 9h6.93a1 1 0 0 1 .866.5zM7 6.5c0 .828-.448 0-1 0s-1 .828-1 0S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 0-1 0s-1 .828-1 0S9.448 5 10 5s1 .672 1 1.5z"/>
+                                </svg>
+                            </div>
+                            <div>Track your moods and journal daily</div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M6 2a.5.5 0 0 1 .47.33L10 12.036l1.53-4.208A.5.5 0 0 1 12 7.5h3.5a.5.5 0 0 1 0 1h-3.15l-1.88 5.17a.5.5 0 0 1-.94 0L6 3.964 4.47 8.171A.5.5 0 0 1 4 8.5H.5a.5.5 0 0 1 0-1h3.15l1.88-5.17A.5.5 0 0 1 6 2Z"/>
+                                </svg>
+                            </div>
+                            <div>Visualize trends and patterns</div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                                </svg>
+                            </div>
+                            <div>Get personalized recommendations</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-auto">
+                        <div class="alert alert-light">
+                            <strong>Free 30-Day Trial:</strong> Sign up today and get a full month of premium features at no cost.
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
