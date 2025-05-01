@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Serene{% endblock %}
+
+{% block styles %}
+<style>
+    .mood-card {
+        transition: transform 0.3s;
+        cursor: pointer;
+        border-radius: 12px;
+    }
+    .mood-card:hover {
+        transform: translateY(-5px);
+    }
+    .mood-card.selected {
+        border: 2px solid #4f46e5;
+        background-color: rgba(79, 70, 229, 0.1);
+    }
+    .mood-emoji {
+        font-size: 2rem;
+    }
+    .journal-card {
+        border-radius: 12px;
+        height: 100%;
+    }
+    .chart-container {
+        height: 300px;
+    }
+    .activity-card {
+        border-radius: 12px;
+        transition: transform 0.3s;
+    }
+    .activity-card:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5 fw-bold text-primary">Welcome, {{ current_user.name or current_user.username }}</h1>
+            <p class="lead">Track your mood, journal your thoughts, and improve your mental well-being.</p>
+        </div>
+    </div>
+    
+    <!-- Mood Tracker Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-4">How are you feeling today?</h3>
+                    
+                    <div class="row g-3">
+                        <div class="col-4 col-md-2">
+                            <div class="mood-card card h-100 text-center p-3" data-mood="Happy">
+                                <div class="mood-emoji mb-2">😊</div>
+                                <div>Happy</div>
+                            </div>
+                        </div>
+                        <div class="col-4 col-md-2">
+                            <div class="mood-card card h-100 text-center p-3" data-mood="Neutral">
+                                <div class="mood-emoji mb-2">😐</div>
+                                <div>Neutral</div>
+                            </div>
+                        </div>
+                        <div class="col-4 col-md-2">
+                            <div class="mood-card card h-100 text-center p-3" data-mood="Sad">
+                                <div class="mood-emoji mb-2">😔</div>
+                                <div>Sad</div>
+                            </div>
+                        </div>
+                        <div class="col-4 col-md-2">
+                            <div class="mood-card card h-100 text-center p-3" data-mood="Angry">
+                                <div class="mood-emoji mb-2">😠</div>
+                                <div>Angry</div>
+                            </div>
+                        </div>
+                        <div class="col-4 col-md-2">
+                            <div class="mood-card card h-100 text-center p-3" data-mood="Tired">
+                                <div class="mood-emoji mb-2">😴</div>
+                                <div>Tired</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-12 mt-4">
+                            <a href="{{ url_for('journal.journal') }}" class="btn btn-primary">
+                                Start Journaling
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Links Section -->
+    <div class="row mb-5">
+        <div class="col-12 col-md-4 mb-4 mb-md-0">
+            <div class="card shadow-sm journal-card">
+                <div class="card-body p-4">
+                    <h4 class="card-title">Journal</h4>
+                    <p class="card-text">Record your thoughts and feelings to track your emotional well-being over time.</p>
+                    <a href="{{ url_for('journal.journal') }}" class="btn btn-outline-primary">Open Journal</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4 mb-4 mb-md-0">
+            <div class="card shadow-sm journal-card">
+                <div class="card-body p-4">
+                    <h4 class="card-title">Games</h4>
+                    <p class="card-text">Take a break with interactive activities designed to reduce stress and improve focus.</p>
+                    <a href="{{ url_for('games.games') }}" class="btn btn-outline-primary">Play Games</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm journal-card">
+                <div class="card-body p-4">
+                    <h4 class="card-title">Your Insights</h4>
+                    <p class="card-text">View trends and patterns in your mood and journal entries over time.</p>
+                    <button class="btn btn-outline-primary" id="viewInsightsBtn">View Insights</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Entries Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-4">Recent Journal Entries</h3>
+                    
+                    {% if entries %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Mood</th>
+                                        <th>Entry</th>
+                                        <th>Sentiment</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in entries %}
+                                    <tr>
+                                        <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                                        <td>
+                                            {% if entry.mood == 'Happy' %}😊
+                                            {% elif entry.mood == 'Neutral' %}😐
+                                            {% elif entry.mood == 'Sad' %}😔
+                                            {% elif entry.mood == 'Angry' %}😠
+                                            {% elif entry.mood == 'Tired' %}😴
+                                            {% endif %}
+                                            {{ entry.mood }}
+                                        </td>
+                                        <td>{{ entry.journal_entry|truncate(100) }}</td>
+                                        <td>
+                                            {% if entry.sentiment == 'Positive' %}
+                                                <span class="badge bg-success">Positive</span>
+                                            {% elif entry.sentiment == 'Neutral' %}
+                                                <span class="badge bg-secondary">Neutral</span>
+                                            {% elif entry.sentiment == 'Negative' %}
+                                                <span class="badge bg-danger">Negative</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center p-5">
+                            <p class="mb-3">You haven't created any journal entries yet.</p>
+                            <a href="{{ url_for('journal.journal') }}" class="btn btn-primary">Create Your First Entry</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Insights Section (Hidden by default) -->
+    <div class="row mb-5" id="insightsSection" style="display: none;">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-4">Your Mood Trends</h3>
+                    
+                    <div class="chart-container">
+                        <canvas id="moodChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recommended Activities Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-3">Recommended Activities</h3>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card activity-card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Breathing Exercise</h5>
+                    <p class="card-text">Practice deep breathing to reduce stress and promote relaxation.</p>
+                    <a href="{{ url_for('games.breathing_exercise') }}" class="btn btn-sm btn-outline-primary">Start Now</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card activity-card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Memory Game</h5>
+                    <p class="card-text">Improve your focus and cognitive function with a fun memory matching game.</p>
+                    <a href="{{ url_for('games.memory_game') }}" class="btn btn-sm btn-outline-primary">Play Game</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card activity-card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Zen Drawing</h5>
+                    <p class="card-text">Express yourself creatively and reduce stress through freeform drawing.</p>
+                    <a href="{{ url_for('games.zen_drawing') }}" class="btn btn-sm btn-outline-primary">Start Drawing</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mood selection
+        const moodCards = document.querySelectorAll('.mood-card');
+        let selectedMood = null;
+        
+        moodCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove selected class from all cards
+                moodCards.forEach(c => c.classList.remove('selected'));
+                
+                // Add selected class to clicked card
+                this.classList.add('selected');
+                
+                // Store selected mood
+                selectedMood = this.getAttribute('data-mood');
+                
+                // Optional: Update the journal link to include the mood
+                const journalLink = document.querySelector('a[href="{{ url_for('journal.journal') }}"]');
+                if (journalLink) {
+                    journalLink.href = "{{ url_for('journal.journal') }}?mood=" + selectedMood;
+                }
+            });
+        });
+        
+        // Toggle insights section
+        const viewInsightsBtn = document.getElementById('viewInsightsBtn');
+        const insightsSection = document.getElementById('insightsSection');
+        
+        if (viewInsightsBtn && insightsSection) {
+            viewInsightsBtn.addEventListener('click', function() {
+                if (insightsSection.style.display === 'none') {
+                    insightsSection.style.display = 'block';
+                    viewInsightsBtn.textContent = 'Hide Insights';
+                    
+                    // Initialize chart if entries exist
+                    {% if entries %}
+                        initMoodChart();
+                    {% endif %}
+                } else {
+                    insightsSection.style.display = 'none';
+                    viewInsightsBtn.textContent = 'View Insights';
+                }
+            });
+        }
+        
+        // Initialize mood chart
+        function initMoodChart() {
+            const ctx = document.getElementById('moodChart').getContext('2d');
+            
+            // Example data - in a real app, this would come from the server
+            const data = {
+                labels: [{% for entry in entries %}'{{ entry.date.strftime('%Y-%m-%d') }}',{% endfor %}],
+                datasets: [{
+                    label: 'Mood',
+                    data: [{% for entry in entries %}
+                        {% if entry.mood == 'Happy' %}5
+                        {% elif entry.mood == 'Neutral' %}3
+                        {% elif entry.mood == 'Sad' %}1
+                        {% elif entry.mood == 'Angry' %}2
+                        {% elif entry.mood == 'Tired' %}2
+                        {% endif %},
+                    {% endfor %}],
+                    backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                    borderColor: 'rgba(79, 70, 229, 1)',
+                    borderWidth: 2,
+                    tension: 0.3
+                }]
+            };
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 5,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    if (value === 5) return 'Happy';
+                                    if (value === 4) return '';
+                                    if (value === 3) return 'Neutral';
+                                    if (value === 2) return 'Tired/Angry';
+                                    if (value === 1) return 'Sad';
+                                    return '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

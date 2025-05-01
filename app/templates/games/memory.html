@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block title %}Memory Game - Serene{% endblock %}
+
+{% block styles %}
+<style>
+    .memory-board {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    .memory-card {
+        aspect-ratio: 1/1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        background-color: #f8f9fa;
+        border-radius: 12px;
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.3s, background-color 0.3s;
+    }
+    .memory-card:hover:not(.matched):not(.flipped) {
+        background-color: #e9ecef;
+    }
+    .memory-card.flipped {
+        transform: rotateY(180deg);
+        background-color: #e6f2ff;
+    }
+    .memory-card.matched {
+        background-color: #d1e7dd;
+        cursor: default;
+        opacity: 0.8;
+    }
+    .memory-card .card-inner {
+        display: none;
+    }
+    .memory-card.flipped .card-inner {
+        display: block;
+        transform: rotateY(180deg);
+    }
+    .memory-stats {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        font-size: 1.1rem;
+    }
+    .success-message {
+        text-align: center;
+        padding: 2rem;
+        background-color: #d1e7dd;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+    .success-icon {
+        font-size: 3rem;
+        color: #198754;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('games.games') }}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Back to Games
+            </a>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="card-title">Memory Match</h2>
+                        <button id="resetBtn" class="btn btn-outline-primary">
+                            <i class="bi bi-arrow-repeat"></i> Reset
+                        </button>
+                    </div>
+                    
+                    <p class="text-center mb-4">
+                        Find matching pairs to clear the board. Test your memory and concentration!
+                    </p>
+                    
+                    <div class="memory-stats mb-4">
+                        <div>Moves: <span id="moveCount">0</span></div>
+                        <div>Pairs: <span id="pairCount">0</span>/<span id="totalPairs">8</span></div>
+                    </div>
+                    
+                    <div id="successMessage" class="success-message" style="display: none;">
+                        <div class="success-icon">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <h3 class="mb-2">Congratulations!</h3>
+                        <p class="mb-4">You completed the game in <span id="finalMoves">0</span> moves.</p>
+                        <button id="playAgainBtn" class="btn btn-primary">Play Again</button>
+                    </div>
+                    
+                    <div class="memory-board" id="gameBoard"></div>
+                    
+                    <div class="mt-4 text-muted small">
+                        <i class="bi bi-info-circle"></i>
+                        Tip: Focus on remembering card positions to finish in fewer moves.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Game elements
+        const gameBoard = document.getElementById('gameBoard');
+        const moveCount = document.getElementById('moveCount');
+        const pairCount = document.getElementById('pairCount');
+        const totalPairs = document.getElementById('totalPairs');
+        const resetBtn = document.getElementById('resetBtn');
+        const playAgainBtn = document.getElementById('playAgainBtn');
+        const successMessage = document.getElementById('successMessage');
+        const finalMoves = document.getElementById('finalMoves');
+        
+        // Game state
+        let cards = [];
+        let flippedCards = [];
+        let moves = 0;
+        let matchedPairs = 0;
+        const emojis = ['🌸', '🌼', '🌈', '🌞', '🌟', '🌵', '🍄', '🦄'];
+        
+        // Initialize the game
+        function initGame() {
+            // Reset game state
+            cards = [];
+            flippedCards = [];
+            moves = 0;
+            matchedPairs = 0;
+            
+            // Update UI
+            moveCount.textContent = '0';
+            pairCount.textContent = '0';
+            totalPairs.textContent = emojis.length.toString();
+            gameBoard.innerHTML = '';
+            successMessage.style.display = 'none';
+            
+            // Create card pairs
+            const cardPairs = [...emojis, ...emojis];
+            
+            // Shuffle the cards
+            for (let i = cardPairs.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cardPairs[i], cardPairs[j]] = [cardPairs[j], cardPairs[i]];
+            }
+            
+            // Create the cards
+            cardPairs.forEach((emoji, index) => {
+                const card = document.createElement('div');
+                card.className = 'memory-card';
+                card.dataset.id = index;
+                card.dataset.emoji = emoji;
+                card.innerHTML = `<span class="card-inner">${emoji}</span>`;
+                
+                card.addEventListener('click', () => handleCardClick(card));
+                
+                gameBoard.appendChild(card);
+                cards.push(card);
+            });
+        }
+        
+        // Handle card click
+        function handleCardClick(card) {
+            // Ignore click if card is already flipped or matched, or if two cards are already flipped
+            if (card.classList.contains('flipped') || 
+                card.classList.contains('matched') || 
+                flippedCards.length >= 2) {
+                return;
+            }
+            
+            // Flip the card
+            card.classList.add('flipped');
+            flippedCards.push(card);
+            
+            // Check for a match if two cards are flipped
+            if (flippedCards.length === 2) {
+                moves++;
+                moveCount.textContent = moves.toString();
+                
+                const [card1, card2] = flippedCards;
+                
+                if (card1.dataset.emoji === card2.dataset.emoji) {
+                    // Cards match
+                    setTimeout(() => {
+                        card1.classList.add('matched');
+                        card2.classList.add('matched');
+                        
+                        flippedCards = [];
+                        matchedPairs++;
+                        pairCount.textContent = matchedPairs.toString();
+                        
+                        // Check if game is complete
+                        if (matchedPairs === emojis.length) {
+                            finalMoves.textContent = moves.toString();
+                            successMessage.style.display = 'block';
+                        }
+                    }, 300);
+                } else {
+                    // Cards don't match, flip them back
+                    setTimeout(() => {
+                        card1.classList.remove('flipped');
+                        card2.classList.remove('flipped');
+                        flippedCards = [];
+                    }, 1000);
+                }
+            }
+        }
+        
+        // Event listeners
+        resetBtn.addEventListener('click', initGame);
+        playAgainBtn.addEventListener('click', initGame);
+        
+        // Start the game
+        initGame();
+    });
+</script>
+{% endblock %}

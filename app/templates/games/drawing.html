@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block title %}Zen Drawing - Serene{% endblock %}
+
+{% block styles %}
+<style>
+    canvas {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        cursor: crosshair;
+        background-color: #fff;
+        touch-action: none;
+    }
+    .color-palette {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .color-option {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+    .color-option.active {
+        border: 2px solid #212529;
+        transform: scale(1.1);
+    }
+    .tools {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .tool-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('games.games') }}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Back to Games
+            </a>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h2 class="card-title mb-4">Zen Drawing</h2>
+                    
+                    <p class="mb-4">
+                        Express yourself through drawing to reduce stress and promote mindfulness.
+                        Let your creativity flow freely without judgment.
+                    </p>
+                    
+                    <div class="tool-controls">
+                        <div class="color-palette">
+                            <div class="color-option active" data-color="#4f46e5" style="background-color: #4f46e5;"></div>
+                            <div class="color-option" data-color="#ec4899" style="background-color: #ec4899;"></div>
+                            <div class="color-option" data-color="#14b8a6" style="background-color: #14b8a6;"></div>
+                            <div class="color-option" data-color="#f59e0b" style="background-color: #f59e0b;"></div>
+                            <div class="color-option" data-color="#10b981" style="background-color: #10b981;"></div>
+                            <div class="color-option" data-color="#8b5cf6" style="background-color: #8b5cf6;"></div>
+                            <div class="color-option" data-color="#ef4444" style="background-color: #ef4444;"></div>
+                            <div class="color-option" data-color="#3b82f6" style="background-color: #3b82f6;"></div>
+                        </div>
+                        
+                        <div class="tools">
+                            <button id="eraserBtn" class="btn btn-outline-secondary">
+                                <i class="bi bi-eraser"></i>
+                            </button>
+                            <button id="clearBtn" class="btn btn-outline-secondary">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="brushSize" class="form-label">Brush Size: <span id="brushSizeValue">5</span>px</label>
+                        <input type="range" class="form-range" id="brushSize" min="1" max="30" value="5">
+                    </div>
+                    
+                    <div class="canvas-container">
+                        <canvas id="drawingCanvas" width="800" height="500"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-5">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-3">Benefits of Mindful Drawing</h3>
+                    <p>
+                        Zen drawing, or mindful drawing, is a form of art therapy that can help reduce stress,
+                        improve focus, and promote relaxation. Unlike traditional art, the goal is not to create
+                        a masterpiece but to engage in the process of drawing without judgment or expectation.
+                    </p>
+                    
+                    <h5 class="mt-4">How it helps:</h5>
+                    <ul>
+                        <li>Reduces stress and anxiety by promoting a state of flow and mindfulness</li>
+                        <li>Improves focus and concentration by encouraging present-moment awareness</li>
+                        <li>Provides a healthy outlet for expressing emotions</li>
+                        <li>Boosts creativity and problem-solving skills</li>
+                        <li>Creates a sense of accomplishment and improved self-esteem</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Canvas setup
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeValue = document.getElementById('brushSizeValue');
+        const eraserBtn = document.getElementById('eraserBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        
+        // Drawing state
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let color = '#4f46e5';
+        let brushSize = 5;
+        let isErasing = false;
+        
+        // Initialize canvas
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Handle drawing
+        function startDrawing(e) {
+            isDrawing = true;
+            [lastX, lastY] = getCoordinates(e);
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const [x, y] = getCoordinates(e);
+            
+            ctx.strokeStyle = isErasing ? '#fff' : color;
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            [lastX, lastY] = [x, y];
+        }
+        
+        function stopDrawing() {
+            isDrawing = false;
+        }
+        
+        function getCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            if (e.type.includes('touch')) {
+                return [
+                    (e.touches[0].clientX - rect.left) * scaleX,
+                    (e.touches[0].clientY - rect.top) * scaleY
+                ];
+            } else {
+                return [
+                    (e.clientX - rect.left) * scaleX,
+                    (e.clientY - rect.top) * scaleY
+                ];
+            }
+        }
+        
+        function clearCanvas() {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // Event listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        
+        // Touch support
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            startDrawing(e);
+        });
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            draw(e);
+        });
+        canvas.addEventListener('touchend', stopDrawing);
+        
+        // Color selection
+        colorOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                // Remove active class from all options
+                colorOptions.forEach(opt => opt.classList.remove('active'));
+                
+                // Add active class to clicked option
+                this.classList.add('active');
+                
+                // Set selected color
+                color = this.dataset.color;
+                
+                // Disable eraser
+                isErasing = false;
+                eraserBtn.classList.remove('active');
+            });
+        });
+        
+        // Brush size
+        brushSizeInput.addEventListener('input', function() {
+            brushSize = this.value;
+            brushSizeValue.textContent = brushSize;
+        });
+        
+        // Eraser
+        eraserBtn.addEventListener('click', function() {
+            isErasing = !isErasing;
+            this.classList.toggle('active');
+            
+            if (isErasing) {
+                // Deselect active color
+                colorOptions.forEach(opt => opt.classList.remove('active'));
+            } else {
+                // Reselect the last color
+                colorOptions[0].classList.add('active');
+                color = colorOptions[0].dataset.color;
+            }
+        });
+        
+        // Clear canvas
+        clearBtn.addEventListener('click', clearCanvas);
+        
+        // Responsive canvas sizing
+        function resizeCanvas() {
+            const containerWidth = canvas.parentElement.clientWidth;
+            const ratio = canvas.height / canvas.width;
+            
+            // Store current drawing
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Resize canvas to fit container (preserving aspect ratio)
+            canvas.style.width = containerWidth + 'px';
+            canvas.style.height = (containerWidth * ratio) + 'px';
+        }
+        
+        // Initial resize
+        resizeCanvas();
+        
+        // Resize on window resize
+        window.addEventListener('resize', resizeCanvas);
+    });
+</script>
+{% endblock %}

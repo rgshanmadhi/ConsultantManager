@@ -1,0 +1,427 @@
+{% extends 'base.html' %}
+
+{% block title %}Journal - Serene{% endblock %}
+
+{% block styles %}
+<style>
+    .mood-card {
+        transition: transform 0.3s;
+        cursor: pointer;
+        border-radius: 12px;
+    }
+    .mood-card:hover {
+        transform: translateY(-5px);
+    }
+    .mood-card.selected {
+        border: 2px solid #4f46e5;
+        background-color: rgba(79, 70, 229, 0.1);
+    }
+    .mood-emoji {
+        font-size: 2rem;
+    }
+    .sentiment-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    .sentiment-positive {
+        background-color: rgba(34, 197, 94, 0.1);
+        color: rgb(22, 163, 74);
+    }
+    .sentiment-neutral {
+        background-color: rgba(168, 162, 158, 0.1);
+        color: rgb(120, 113, 108);
+    }
+    .sentiment-negative {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: rgb(220, 38, 38);
+    }
+    .entry-card {
+        border-radius: 12px;
+        transition: transform 0.3s ease;
+    }
+    .entry-card:hover {
+        transform: translateY(-5px);
+    }
+    #journal-text {
+        min-height: 200px;
+        resize: vertical;
+    }
+    #wordCount {
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mb-5">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5 fw-bold text-primary">Journal</h1>
+            <p class="lead">Express your thoughts and feelings to better understand your mental state.</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Journal Entry Form -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-4">Today's Entry</h3>
+                    
+                    <form id="journalForm">
+                        <!-- Mood Selection -->
+                        <div class="mb-4">
+                            <label class="form-label">How are you feeling today?</label>
+                            <div class="row g-3">
+                                <div class="col-4 col-md-2">
+                                    <div class="mood-card card h-100 text-center p-3" data-mood="Happy">
+                                        <div class="mood-emoji mb-2">😊</div>
+                                        <div>Happy</div>
+                                    </div>
+                                </div>
+                                <div class="col-4 col-md-2">
+                                    <div class="mood-card card h-100 text-center p-3" data-mood="Neutral">
+                                        <div class="mood-emoji mb-2">😐</div>
+                                        <div>Neutral</div>
+                                    </div>
+                                </div>
+                                <div class="col-4 col-md-2">
+                                    <div class="mood-card card h-100 text-center p-3" data-mood="Sad">
+                                        <div class="mood-emoji mb-2">😔</div>
+                                        <div>Sad</div>
+                                    </div>
+                                </div>
+                                <div class="col-4 col-md-2">
+                                    <div class="mood-card card h-100 text-center p-3" data-mood="Angry">
+                                        <div class="mood-emoji mb-2">😠</div>
+                                        <div>Angry</div>
+                                    </div>
+                                </div>
+                                <div class="col-4 col-md-2">
+                                    <div class="mood-card card h-100 text-center p-3" data-mood="Tired">
+                                        <div class="mood-emoji mb-2">😴</div>
+                                        <div>Tired</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="moodError" class="invalid-feedback d-none">Please select your mood.</div>
+                        </div>
+                        
+                        <!-- Journal Text -->
+                        <div class="mb-4">
+                            <label for="journal-text" class="form-label">What's on your mind?</label>
+                            <textarea id="journal-text" class="form-control" rows="8" placeholder="Write your thoughts here..."></textarea>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <div id="wordCount">0/1000 characters</div>
+                                <div>
+                                    <span id="sentimentResult" class="sentiment-badge sentiment-neutral d-none">
+                                        <span id="sentimentText">Neutral</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="journalError" class="invalid-feedback d-none">Please write something in your journal.</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="button" id="analyzeBtn" class="btn btn-outline-primary">Analyze Sentiment</button>
+                            <button type="submit" id="saveBtn" class="btn btn-primary">Save Entry</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Past Entries -->
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-4">Past Entries</h3>
+                    <div id="entriesList">
+                        <div class="text-center p-4" id="loadingEntries">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="entriesContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const moodCards = document.querySelectorAll('.mood-card');
+        const journalTextarea = document.getElementById('journal-text');
+        const wordCount = document.getElementById('wordCount');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const sentimentResult = document.getElementById('sentimentResult');
+        const sentimentText = document.getElementById('sentimentText');
+        const journalForm = document.getElementById('journalForm');
+        const moodError = document.getElementById('moodError');
+        const journalError = document.getElementById('journalError');
+        const entriesContent = document.getElementById('entriesContent');
+        const loadingEntries = document.getElementById('loadingEntries');
+        
+        // State
+        let selectedMood = null;
+        let sentiment = null;
+        
+        // Check for mood parameter in URL (from dashboard redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const moodParam = urlParams.get('mood');
+        if (moodParam) {
+            const matchingCard = Array.from(moodCards).find(card => card.getAttribute('data-mood') === moodParam);
+            if (matchingCard) {
+                matchingCard.click(); // Trigger click to select the mood
+            }
+        }
+        
+        // Mood selection
+        moodCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove selected class from all cards
+                moodCards.forEach(c => c.classList.remove('selected'));
+                
+                // Add selected class to clicked card
+                this.classList.add('selected');
+                
+                // Store selected mood
+                selectedMood = this.getAttribute('data-mood');
+                
+                // Hide error if shown
+                moodError.classList.add('d-none');
+            });
+        });
+        
+        // Word count
+        journalTextarea.addEventListener('input', function() {
+            const count = this.value.length;
+            const maxCount = 1000;
+            wordCount.textContent = `${count}/${maxCount} characters`;
+            
+            // Warn if approaching limit
+            if (count > maxCount * 0.9) {
+                wordCount.classList.add('text-warning');
+            } else {
+                wordCount.classList.remove('text-warning');
+            }
+            
+            // Enforce limit
+            if (count > maxCount) {
+                this.value = this.value.substring(0, maxCount);
+                wordCount.textContent = `${maxCount}/${maxCount} characters`;
+                wordCount.classList.add('text-danger');
+            } else {
+                wordCount.classList.remove('text-danger');
+            }
+            
+            // Hide error if shown
+            journalError.classList.add('d-none');
+        });
+        
+        // Analyze sentiment
+        analyzeBtn.addEventListener('click', async function() {
+            const text = journalTextarea.value.trim();
+            
+            if (!text) {
+                journalError.textContent = 'Please write something to analyze.';
+                journalError.classList.remove('d-none');
+                return;
+            }
+            
+            // Show loading state
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+            
+            try {
+                const response = await fetch('/api/analyze-sentiment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to analyze sentiment');
+                }
+                
+                const data = await response.json();
+                sentiment = data.sentiment;
+                
+                // Show result
+                sentimentResult.classList.remove('d-none', 'sentiment-positive', 'sentiment-neutral', 'sentiment-negative');
+                sentimentText.textContent = sentiment;
+                
+                if (sentiment === 'Positive') {
+                    sentimentResult.classList.add('sentiment-positive');
+                } else if (sentiment === 'Negative') {
+                    sentimentResult.classList.add('sentiment-negative');
+                } else {
+                    sentimentResult.classList.add('sentiment-neutral');
+                }
+            } catch (error) {
+                console.error('Error analyzing sentiment:', error);
+                alert('Failed to analyze sentiment. Please try again.');
+            } finally {
+                // Reset button
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analyze Sentiment';
+            }
+        });
+        
+        // Save journal entry
+        journalForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const journalText = journalTextarea.value.trim();
+            let isValid = true;
+            
+            // Validate mood
+            if (!selectedMood) {
+                moodError.classList.remove('d-none');
+                isValid = false;
+            }
+            
+            // Validate journal text
+            if (!journalText) {
+                journalError.textContent = 'Please write something in your journal.';
+                journalError.classList.remove('d-none');
+                isValid = false;
+            }
+            
+            if (!isValid) return;
+            
+            // Show loading state
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+            
+            try {
+                const response = await fetch('/api/entries', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mood: selectedMood,
+                        journalEntry: journalText,
+                        sentiment: sentiment
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save entry');
+                }
+                
+                // Clear form
+                moodCards.forEach(c => c.classList.remove('selected'));
+                journalTextarea.value = '';
+                selectedMood = null;
+                sentiment = null;
+                wordCount.textContent = '0/1000 characters';
+                sentimentResult.classList.add('d-none');
+                
+                // Show success message
+                alert('Journal entry saved successfully!');
+                
+                // Refresh entries list
+                fetchEntries();
+            } catch (error) {
+                console.error('Error saving entry:', error);
+                alert('Failed to save entry. Please try again.');
+            } finally {
+                // Reset button
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Entry';
+            }
+        });
+        
+        // Fetch past entries
+        async function fetchEntries() {
+            try {
+                loadingEntries.style.display = 'block';
+                entriesContent.innerHTML = '';
+                
+                const response = await fetch('/api/entries');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch entries');
+                }
+                
+                const entries = await response.json();
+                
+                loadingEntries.style.display = 'none';
+                
+                if (entries.length === 0) {
+                    entriesContent.innerHTML = `
+                        <div class="text-center p-3">
+                            <p>No journal entries yet.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const entriesHTML = entries.map(entry => {
+                    const date = new Date(entry.date);
+                    const formattedDate = date.toLocaleDateString();
+                    
+                    let moodEmoji;
+                    switch(entry.mood) {
+                        case 'Happy': moodEmoji = '😊'; break;
+                        case 'Neutral': moodEmoji = '😐'; break;
+                        case 'Sad': moodEmoji = '😔'; break;
+                        case 'Angry': moodEmoji = '😠'; break;
+                        case 'Tired': moodEmoji = '😴'; break;
+                        default: moodEmoji = '😐';
+                    }
+                    
+                    let sentimentClass;
+                    switch(entry.sentiment) {
+                        case 'Positive': sentimentClass = 'sentiment-positive'; break;
+                        case 'Negative': sentimentClass = 'sentiment-negative'; break;
+                        default: sentimentClass = 'sentiment-neutral';
+                    }
+                    
+                    return `
+                        <div class="card entry-card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="text-muted small">${formattedDate}</div>
+                                    <div class="d-flex align-items-center">
+                                        <span class="me-2">${moodEmoji} ${entry.mood}</span>
+                                        <span class="sentiment-badge ${sentimentClass}">${entry.sentiment}</span>
+                                    </div>
+                                </div>
+                                <p class="mb-0">${entry.journalEntry.length > 100 ? entry.journalEntry.substring(0, 100) + '...' : entry.journalEntry}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                entriesContent.innerHTML = entriesHTML;
+            } catch (error) {
+                console.error('Error fetching entries:', error);
+                loadingEntries.style.display = 'none';
+                entriesContent.innerHTML = `
+                    <div class="text-center p-3">
+                        <p class="text-danger">Failed to load entries. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Initial entries fetch
+        fetchEntries();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Stress Relief Games - Serene{% endblock %}
+
+{% block styles %}
+<style>
+    .game-card {
+        border-radius: 16px;
+        transition: transform 0.3s;
+        overflow: hidden;
+    }
+    .game-card:hover {
+        transform: translateY(-10px);
+    }
+    .game-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem auto;
+        font-size: 2.5rem;
+    }
+    .breathing-icon {
+        background-color: rgba(59, 130, 246, 0.1);
+        color: rgb(59, 130, 246);
+    }
+    .memory-icon {
+        background-color: rgba(139, 92, 246, 0.1);
+        color: rgb(139, 92, 246);
+    }
+    .drawing-icon {
+        background-color: rgba(20, 184, 166, 0.1);
+        color: rgb(20, 184, 166);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-5 fw-bold text-primary mb-3">Stress Relief Games</h1>
+            <p class="lead mb-5">Take a mental break with these interactive activities designed to reduce stress and improve focus.</p>
+        </div>
+    </div>
+    
+    <div class="row mb-5 justify-content-center">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow game-card h-100">
+                <div class="card-body p-4 text-center">
+                    <div class="game-icon breathing-icon mb-3">
+                        <i class="bi bi-wind"></i>
+                    </div>
+                    <h3 class="card-title">Breathing Exercise</h3>
+                    <p class="card-text mb-4">Calm your mind with guided breathing to reduce stress and anxiety.</p>
+                    <a href="{{ url_for('games.breathing_exercise') }}" class="btn btn-primary">Start Exercise</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card shadow game-card h-100">
+                <div class="card-body p-4 text-center">
+                    <div class="game-icon memory-icon mb-3">
+                        <i class="bi bi-brain"></i>
+                    </div>
+                    <h3 class="card-title">Memory Match</h3>
+                    <p class="card-text mb-4">Boost your focus and cognitive function with a fun memory matching game.</p>
+                    <a href="{{ url_for('games.memory_game') }}" class="btn btn-primary">Play Game</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card shadow game-card h-100">
+                <div class="card-body p-4 text-center">
+                    <div class="game-icon drawing-icon mb-3">
+                        <i class="bi bi-pencil"></i>
+                    </div>
+                    <h3 class="card-title">Zen Drawing</h3>
+                    <p class="card-text mb-4">Express yourself creatively and reduce stress through freeform drawing.</p>
+                    <a href="{{ url_for('games.zen_drawing') }}" class="btn btn-primary">Start Drawing</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-3">Benefits of Stress Relief Activities</h3>
+                    
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0 text-primary">
+                                    <i class="bi bi-heart fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5>Reduced Anxiety</h5>
+                                    <p>Regular stress-relief activities can help lower anxiety levels and promote a sense of calm.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0 text-primary">
+                                    <i class="bi bi-lightbulb fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5>Improved Focus</h5>
+                                    <p>Taking mental breaks can enhance concentration and cognitive performance.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0 text-primary">
+                                    <i class="bi bi-battery-charging fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5>Increased Energy</h5>
+                                    <p>Relaxation techniques can help restore mental energy and prevent burnout.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Import Bootstrap Icons for game icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+{% endblock %}

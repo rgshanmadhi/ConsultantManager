@@ -1,0 +1,371 @@
+{% extends 'base.html' %}
+
+{% block title %}Subscription - Serene{% endblock %}
+
+{% block styles %}
+<style>
+    .subscription-card {
+        border-radius: 16px;
+        transition: transform 0.3s;
+        overflow: hidden;
+    }
+    .subscription-card:hover {
+        transform: translateY(-10px);
+    }
+    .price {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    .period {
+        font-size: 1rem;
+        color: #6c757d;
+    }
+    .feature-list {
+        list-style-type: none;
+        padding-left: 0;
+    }
+    .feature-list li {
+        margin-bottom: 0.75rem;
+        padding-left: 1.5rem;
+        position: relative;
+    }
+    .feature-list li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: #4f46e5;
+        font-weight: 600;
+    }
+    .trial-info {
+        background-color: #e9ecef;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .subscription-active {
+        background-color: #d1e7dd;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .credit-card {
+        max-width: 400px;
+        margin: 0 auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5 fw-bold text-primary">Subscription</h1>
+            <p class="lead">Upgrade your mental wellness journey with premium features and continuous access.</p>
+        </div>
+    </div>
+    
+    {% if current_user.is_subscribed %}
+        <!-- Active Subscription -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="subscription-active">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <i class="bi bi-check-circle-fill text-success fs-1"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-1">Active Subscription</h3>
+                            <p class="mb-0">Your premium access is active. Enjoy all the features of Serene!</p>
+                        </div>
+                    </div>
+                    
+                    {% if subscription %}
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <p><strong>Status:</strong> {{ subscription.status|capitalize }}</p>
+                                <p><strong>Started:</strong> {{ subscription.current_period_start.strftime('%B %d, %Y') }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Renewal Date:</strong> {{ subscription.current_period_end.strftime('%B %d, %Y') }}</p>
+                                <p><strong>Subscription ID:</strong> {{ subscription.id }}</p>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="mt-3">
+                        <button id="cancelSubscription" class="btn btn-outline-danger">Cancel Subscription</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% elif current_user.is_in_trial %}
+        <!-- Trial Period -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="trial-info">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <i class="bi bi-calendar-check fs-1 text-primary"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-1">Free Trial Active</h3>
+                            <p class="mb-0">You're currently in your 30-day free trial period.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <p>
+                            <strong>Trial ends on:</strong> 
+                            {{ current_user.trial_end_date.strftime('%B %d, %Y') }}
+                            ({{ (current_user.trial_end_date - now).days }} days remaining)
+                        </p>
+                        <p class="mb-0">Subscribe now to ensure uninterrupted access to all features when your trial ends.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Trial Ended -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="me-3">
+                            <i class="bi bi-exclamation-triangle-fill fs-3"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">Your trial has ended</h4>
+                        </div>
+                    </div>
+                    <p class="mb-0">Subscribe now to regain access to all the premium features of Serene.</p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Subscription Plans -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">Choose Your Plan</h2>
+        </div>
+        
+        <div class="col-md-6 mb-4 mb-md-0">
+            <div class="card subscription-card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <h3 class="card-title">Monthly Plan</h3>
+                    <div class="mb-4">
+                        <span class="price">$9.99</span>
+                        <span class="period">/ month</span>
+                    </div>
+                    
+                    <ul class="feature-list mb-4">
+                        <li>Unlimited journal entries</li>
+                        <li>Full access to all stress relief games</li>
+                        <li>Advanced mood analytics and insights</li>
+                        <li>Personalized activity recommendations</li>
+                        <li>Data export capabilities</li>
+                    </ul>
+                    
+                    <div class="d-grid">
+                        <button class="btn btn-primary btn-lg subscribe-btn" data-plan="monthly">
+                            Subscribe Monthly
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card subscription-card h-100 shadow border-primary">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <span class="badge bg-white text-primary">BEST VALUE</span>
+                </div>
+                <div class="card-body p-4">
+                    <h3 class="card-title">Annual Plan</h3>
+                    <div class="mb-4">
+                        <span class="price">$89.99</span>
+                        <span class="period">/ year</span>
+                        <div class="mt-1">
+                            <span class="badge bg-success">Save 25%</span>
+                        </div>
+                    </div>
+                    
+                    <ul class="feature-list mb-4">
+                        <li>All features in the monthly plan</li>
+                        <li>Priority support</li>
+                        <li>Early access to new features</li>
+                        <li>Advanced data visualization</li>
+                        <li>No price increases for a full year</li>
+                    </ul>
+                    
+                    <div class="d-grid">
+                        <button class="btn btn-primary btn-lg subscribe-btn" data-plan="annual">
+                            Subscribe Yearly
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if not current_user.is_subscribed %}
+        <!-- Payment Form (hidden by default) -->
+        <div class="row mb-5" id="paymentFormContainer" style="display: none;">
+            <div class="col-lg-8 mx-auto">
+                <div class="card shadow">
+                    <div class="card-body p-4">
+                        <h3 class="card-title mb-4">Payment Information</h3>
+                        
+                        <form id="paymentForm">
+                            <div class="credit-card mb-4">
+                                <div class="mb-3">
+                                    <label for="cardName" class="form-label">Cardholder Name</label>
+                                    <input type="text" class="form-control" id="cardName" placeholder="Full name on card" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="cardNumber" class="form-label">Card Number</label>
+                                    <input type="text" class="form-control" id="cardNumber" placeholder="1234 5678 9012 3456" required>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="cardExpiry" class="form-label">Expiration Date</label>
+                                        <input type="text" class="form-control" id="cardExpiry" placeholder="MM/YY" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="cardCVV" class="form-label">CVV</label>
+                                        <input type="text" class="form-control" id="cardCVV" placeholder="123" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <button type="button" id="cancelPayment" class="btn btn-outline-secondary">Cancel</button>
+                                <button type="submit" class="btn btn-primary">
+                                    Subscribe Now
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- FAQ Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="mb-4">Frequently Asked Questions</h3>
+            
+            <div class="accordion" id="subscriptionFAQ">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingOne">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                            What happens when my free trial ends?
+                        </button>
+                    </h2>
+                    <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#subscriptionFAQ">
+                        <div class="accordion-body">
+                            When your 30-day free trial ends, you'll need an active subscription to continue using Serene's features. Your data will remain stored for 30 days after trial expiration, giving you time to subscribe without losing your journal entries and mood data.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingTwo">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                            Can I cancel my subscription at any time?
+                        </button>
+                    </h2>
+                    <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#subscriptionFAQ">
+                        <div class="accordion-body">
+                            Yes, you can cancel your subscription at any time. Your access will continue until the end of your current billing period. There are no cancellation fees.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingThree">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                            What's the difference between monthly and annual plans?
+                        </button>
+                    </h2>
+                    <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#subscriptionFAQ">
+                        <div class="accordion-body">
+                            Both plans offer the same core features. The annual plan provides a 25% discount compared to paying monthly, plus some additional benefits like priority support and early access to new features.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const subscribeBtns = document.querySelectorAll('.subscribe-btn');
+        const paymentFormContainer = document.getElementById('paymentFormContainer');
+        const cancelPayment = document.getElementById('cancelPayment');
+        const paymentForm = document.getElementById('paymentForm');
+        const cancelSubscription = document.getElementById('cancelSubscription');
+        
+        // Show payment form when a plan is selected
+        if (subscribeBtns.length) {
+            subscribeBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const plan = this.dataset.plan;
+                    // Store the selected plan for the form submission
+                    paymentForm.dataset.plan = plan;
+                    
+                    // Show the payment form
+                    paymentFormContainer.style.display = 'block';
+                    
+                    // Scroll to the payment form
+                    paymentFormContainer.scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+        }
+        
+        // Hide payment form on cancel
+        if (cancelPayment) {
+            cancelPayment.addEventListener('click', function() {
+                paymentFormContainer.style.display = 'none';
+            });
+        }
+        
+        // Handle payment form submission
+        if (paymentForm) {
+            paymentForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const plan = this.dataset.plan;
+                
+                // Here we would typically send the payment information to the server
+                // For the demo, we'll just show an alert
+                alert(`Thank you for subscribing to the ${plan} plan! Your subscription is now active.`);
+                
+                // Reload the page to show the active subscription
+                window.location.href = '/subscription';
+            });
+        }
+        
+        // Handle subscription cancellation
+        if (cancelSubscription) {
+            cancelSubscription.addEventListener('click', function() {
+                if (confirm('Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.')) {
+                    // Here we would typically send a request to the server to cancel the subscription
+                    // For the demo, we'll just show an alert
+                    alert('Your subscription has been canceled. You will have access until the end of your current billing period.');
+                    
+                    // Reload the page
+                    window.location.href = '/subscription';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

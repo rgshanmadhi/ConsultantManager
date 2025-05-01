@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+
+{% block title %}Breathing Exercise - Serene{% endblock %}
+
+{% block styles %}
+<style>
+    .breathing-container {
+        text-align: center;
+        padding: 2rem;
+    }
+    .breathing-circle {
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        margin: 0 auto 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #3b82f6, #93c5fd);
+        color: white;
+        position: relative;
+        transition: transform 1s ease-in-out;
+    }
+    .breathing-instructions {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+        min-height: 2.5rem;
+    }
+    .breathing-progress {
+        margin-bottom: 2rem;
+        font-size: 0.875rem;
+    }
+    .breathing-bg {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        z-index: -1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('games.games') }}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Back to Games
+            </a>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-center mb-4">4-7-8 Breathing Exercise</h2>
+                    <p class="text-center mb-5">
+                        This simple breathing technique promotes relaxation and can help reduce stress and anxiety.
+                    </p>
+                    
+                    <div class="breathing-container">
+                        <div class="breathing-circle" id="breathingCircle">
+                            <div class="breathing-bg"></div>
+                            <span id="counter">Start</span>
+                        </div>
+                        
+                        <div class="breathing-instructions" id="instructions"></div>
+                        
+                        <div class="breathing-progress" id="progress"></div>
+                        
+                        <button id="startBtn" class="btn btn-primary btn-lg">
+                            <i class="bi bi-play-fill"></i> Start Breathing
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-3">About 4-7-8 Breathing</h3>
+                    <p>
+                        The 4-7-8 breathing technique, developed by Dr. Andrew Weil, is a simple but powerful relaxation
+                        method that can help with stress, anxiety, and even falling asleep faster.
+                    </p>
+                    
+                    <h5 class="mt-4">How it works:</h5>
+                    <ol>
+                        <li>Inhale quietly through your nose for 4 seconds</li>
+                        <li>Hold your breath for 7 seconds</li>
+                        <li>Exhale completely through your mouth for 8 seconds</li>
+                        <li>Repeat the cycle 3-4 times</li>
+                    </ol>
+                    
+                    <p class="mt-4">
+                        Regular practice of this technique can help calm your nervous system, reduce anxiety, 
+                        lower blood pressure, and improve focus and concentration.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const breathingCircle = document.getElementById('breathingCircle');
+        const counter = document.getElementById('counter');
+        const instructions = document.getElementById('instructions');
+        const progress = document.getElementById('progress');
+        const startBtn = document.getElementById('startBtn');
+        
+        let isActive = false;
+        let currentPhase = 'inhale';
+        let count = 4;
+        let cycleCount = 0;
+        let intervalId;
+        const maxCycles = 3;
+        
+        function updateUI() {
+            // Update counter
+            counter.textContent = isActive ? count : 'Start';
+            
+            // Update instructions
+            if (isActive) {
+                switch (currentPhase) {
+                    case 'inhale':
+                        instructions.textContent = 'Breathe in slowly through your nose';
+                        break;
+                    case 'hold':
+                        instructions.textContent = 'Hold your breath';
+                        break;
+                    case 'exhale':
+                        instructions.textContent = 'Exhale slowly through your mouth';
+                        break;
+                    case 'rest':
+                        instructions.textContent = 'Rest before the next breath';
+                        break;
+                }
+                
+                // Update progress
+                progress.textContent = `Cycle ${cycleCount + 1} of ${maxCycles}`;
+            } else {
+                instructions.textContent = '';
+                progress.textContent = '';
+            }
+            
+            // Update circle size based on phase
+            if (isActive) {
+                switch (currentPhase) {
+                    case 'inhale':
+                        // Scale from 1 to 1.5 during inhale
+                        const inhaleScale = 1 + (4 - count) * 0.125;
+                        breathingCircle.style.transform = `scale(${inhaleScale})`;
+                        break;
+                    case 'hold':
+                        // Stay at max size during hold
+                        breathingCircle.style.transform = 'scale(1.5)';
+                        break;
+                    case 'exhale':
+                        // Scale from 1.5 to 1 during exhale
+                        const exhaleScale = 1.5 - (8 - count) * 0.0625;
+                        breathingCircle.style.transform = `scale(${exhaleScale})`;
+                        break;
+                    case 'rest':
+                        // Stay at min size during rest
+                        breathingCircle.style.transform = 'scale(1)';
+                        break;
+                }
+            } else {
+                breathingCircle.style.transform = 'scale(1)';
+            }
+        }
+        
+        function breathingCycle() {
+            count--;
+            
+            if (count <= 0) {
+                // Move to next phase when counter reaches 0
+                switch (currentPhase) {
+                    case 'inhale':
+                        currentPhase = 'hold';
+                        count = 7; // Hold for 7 seconds
+                        break;
+                    case 'hold':
+                        currentPhase = 'exhale';
+                        count = 8; // Exhale for 8 seconds
+                        break;
+                    case 'exhale':
+                        currentPhase = 'rest';
+                        count = 4; // Rest for 4 seconds
+                        break;
+                    case 'rest':
+                        currentPhase = 'inhale';
+                        count = 4; // Inhale for 4 seconds
+                        cycleCount++;
+                        
+                        // Check if we've completed all cycles
+                        if (cycleCount >= maxCycles) {
+                            stopBreathing();
+                            return;
+                        }
+                        break;
+                }
+            }
+            
+            updateUI();
+        }
+        
+        function startBreathing() {
+            isActive = true;
+            currentPhase = 'inhale';
+            count = 4;
+            cycleCount = 0;
+            
+            // Update button
+            startBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Stop Exercise';
+            
+            // Start interval
+            intervalId = setInterval(breathingCycle, 1000);
+            
+            // Initial UI update
+            updateUI();
+        }
+        
+        function stopBreathing() {
+            isActive = false;
+            clearInterval(intervalId);
+            
+            // Update button
+            startBtn.innerHTML = '<i class="bi bi-play-fill"></i> Start Breathing';
+            
+            // Reset UI
+            updateUI();
+        }
+        
+        startBtn.addEventListener('click', function() {
+            if (isActive) {
+                stopBreathing();
+            } else {
+                startBreathing();
+            }
+        });
+        
+        // Initial UI
+        updateUI();
+    });
+</script>
+{% endblock %}
