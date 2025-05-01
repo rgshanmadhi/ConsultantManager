@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Serene{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body p-5">
+                    <h2 class="text-center mb-4 text-primary fw-bold">Login to Serene</h2>
+                    
+                    <form method="POST" action="{{ url_for('auth.login') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required autofocus>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Login</button>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <p>Don't have an account? <a href="{{ url_for('auth.register') }}">Register here</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-5 d-none d-lg-block">
+            <div class="h-100 d-flex flex-column justify-content-center">
+                <h2 class="display-6 fw-bold text-primary mb-3">Welcome to Serene</h2>
+                <p class="lead">Your personal mental health tracker and wellness companion.</p>
+                <ul class="list-unstyled mt-4">
+                    <li class="mb-2">✓ Track your daily mood</li>
+                    <li class="mb-2">✓ Journal your thoughts</li>
+                    <li class="mb-2">✓ Gain insights into your emotional patterns</li>
+                    <li class="mb-2">✓ Access stress-relief activities</li>
+                    <li>✓ Improve your mental well-being</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
