@@ -11,12 +11,22 @@ class Subscription(db.Model):
     current_period_end = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Optional fields for more complex subscription handling
+    stripe_customer_id = db.Column(db.String(120), nullable=True)
+    stripe_subscription_id = db.Column(db.String(120), nullable=True)
+    plan = db.Column(db.String(20), nullable=False, default='monthly')  # monthly, annual
+    
     def to_dict(self):
+        """Convert to dictionary for API responses"""
         return {
             'id': self.id,
             'userId': self.user_id,
             'status': self.status,
-            'currentPeriodStart': self.current_period_start.strftime('%Y-%m-%d'),
-            'currentPeriodEnd': self.current_period_end.strftime('%Y-%m-%d'),
-            'createdAt': self.created_at.strftime('%Y-%m-%d'),
+            'currentPeriodStart': self.current_period_start.isoformat(),
+            'currentPeriodEnd': self.current_period_end.isoformat(),
+            'plan': self.plan,
+            'createdAt': self.created_at.isoformat()
         }
+    
+    def __repr__(self):
+        return f'<Subscription {self.id} - {self.status}>'

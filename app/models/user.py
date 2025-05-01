@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from flask_login import UserMixin
-from app import db, login_manager
-from passlib.hash import pbkdf2_sha256 as sha256
+from werkzeug.security import generate_password_hash, check_password_hash
+from app import db
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -22,21 +22,26 @@ class User(UserMixin, db.Model):
     
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
-        # Set trial end date to 30 days from now
-        self.trial_end_date = datetime.utcnow() + timedelta(days=30)
+        # Set trial end date to 30 days from registration
+        if self.trial_end_date is None:
+            self.trial_end_date = datetime.utcnow() + timedelta(days=30)
     
     @property
     def password(self):
+        """Prevent password from being accessed"""
         raise AttributeError('password is not a readable attribute')
     
     @password.setter
     def password(self, password):
-        self.password_hash = sha256.hash(password)
+        """Set password to a hashed password"""
+        self.password_hash = generate_password_hash(password)
     
     def verify_password(self, password):
-        return sha256.verify(password, self.password_hash)
+        """Check if hashed password matches user password"""
+        return check_password_hash(self.password_hash, password)
     
     def to_dict(self):
+        """Convert to dictionary for API responses"""
         return {
             'id': self.id,
             'username': self.username,
@@ -44,10 +49,13 @@ class User(UserMixin, db.Model):
             'name': self.name,
             'isSubscribed': self.is_subscribed,
             'isInTrial': self.is_in_trial,
-            'trialEndDate': self.trial_end_date.strftime('%Y-%m-%d') if self.trial_end_date else None,
-            'createdAt': self.created_at.strftime('%Y-%m-%d'),
+            'trialEndDate': self.trial_end_date.isoformat() if self.trial_end_date else None,
+            'createdAt': self.created_at.isoformat()
         }
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
 
-@login_manager.user_loader
 def load_user(user_id):
+    """User loader function for Flask-Login"""
     return User.query.get(int(user_id))

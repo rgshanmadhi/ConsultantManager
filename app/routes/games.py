@@ -1,25 +1,29 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_login import login_required, current_user
 
-games_bp = Blueprint('games', __name__)
+# Create blueprint
+games = Blueprint('games', __name__)
 
-@games_bp.route('/games')
+@games.route('/games')
 @login_required
 def games():
-    # Check subscription status - games are available to all users
+    """Main games page showing available activities"""
     return render_template('games.html')
 
-@games_bp.route('/games/breathing')
+@games.route('/games/breathing')
 @login_required
 def breathing_exercise():
+    """Breathing exercise game"""
     return render_template('games/breathing.html')
 
-@games_bp.route('/games/memory')
+@games.route('/games/memory')
 @login_required
 def memory_game():
+    """Memory matching game"""
     return render_template('games/memory.html')
 
-@games_bp.route('/games/drawing')
+@games.route('/games/drawing')
 @login_required
 def zen_drawing():
+    """Zen drawing activity"""
     return render_template('games/drawing.html')

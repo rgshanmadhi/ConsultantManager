@@ -1,86 +1,124 @@
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, abort
 from flask_login import login_required, current_user
-from datetime import datetime, timedelta
 from app import db
-from app.models import Entry, User, Subscription
+from app.models.user import User
+from app.models.entry import Entry
+from app.models.subscription import Subscription
+from app.forms.subscription import SubscriptionForm
+from datetime import datetime, timedelta
+import json
 
-main_bp = Blueprint('main', __name__)
+# Create blueprint
+main = Blueprint('main', __name__)
 
-@main_bp.route('/')
+@main.route('/')
 @login_required
 def dashboard():
-    # Check if user is in trial period or subscribed before showing the dashboard
-    is_subscribed = current_user.is_subscribed
-    is_in_trial = current_user.is_in_trial
-    
-    if not is_subscribed and not is_in_trial:
-        return render_template('subscription.html')
-    
-    # Get recent entries for the dashboard
+    """Dashboard page displaying user's mood data and recent entries"""
+    # Get recent entries
     entries = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc()).limit(5).all()
     
     return render_template('dashboard.html', entries=entries)
 
-@main_bp.route('/subscription')
+@main.route('/subscription', methods=['GET', 'POST'])
 @login_required
 def subscription():
-    # Get user's subscription status
-    subscription = Subscription.query.filter_by(user_id=current_user.id).first()
+    """Subscription management page"""
+    form = SubscriptionForm()
     
-    return render_template('subscription.html', subscription=subscription)
+    # Get current subscription
+    current_subscription = Subscription.query.filter_by(
+        user_id=current_user.id, 
+        status='active'
+    ).first()
+    
+    if form.validate_on_submit():
+        # This is a simplified implementation without real payment processing
+        # In production, you would integrate with Stripe or another payment processor
+        
+        # Calculate subscription end date based on plan
+        if form.plan.data == 'monthly':
+            end_date = datetime.utcnow() + timedelta(days=30)
+        else:  # annual
+            end_date = datetime.utcnow() + timedelta(days=365)
+        
+        # Create new subscription or update existing one
+        if current_subscription:
+            current_subscription.status = 'active'
+            current_subscription.current_period_start = datetime.utcnow()
+            current_subscription.current_period_end = end_date
+            current_subscription.plan = form.plan.data
+        else:
+            new_subscription = Subscription(
+                user_id=current_user.id,
+                status='active',
+                current_period_start=datetime.utcnow(),
+                current_period_end=end_date,
+                plan=form.plan.data
+            )
+            db.session.add(new_subscription)
+        
+        # Update user's subscription status
+        current_user.is_subscribed = True
+        current_user.is_in_trial = False
+        
+        db.session.commit()
+        flash('Subscription successful!', 'success')
+        return redirect(url_for('main.dashboard'))
+    
+    return render_template('subscription.html', form=form, subscription=current_subscription)
 
-@main_bp.route('/api/entries')
+# API Routes
+@main.route('/api/entries', methods=['GET'])
 @login_required
 def api_entries():
-    # Check subscription status
+    """API endpoint to get user's journal entries"""
+    # Check subscription
     if not current_user.is_subscribed and not current_user.is_in_trial:
         return jsonify({'message': 'Subscription required'}), 403
     
-    # Query all entries for the current user
     entries = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc()).all()
-    
-    # Return as JSON
-    return jsonify([entry.to_dict() for entry in entries]), 200
+    return jsonify([entry.to_dict() for entry in entries])
 
-@main_bp.route('/api/entries/<date>')
+@main.route('/api/entries/<date>', methods=['GET'])
 @login_required
 def api_entries_by_date(date):
-    # Check subscription status
+    """API endpoint to get user's journal entries for a specific date"""
+    # Check subscription
     if not current_user.is_subscribed and not current_user.is_in_trial:
         return jsonify({'message': 'Subscription required'}), 403
     
     try:
-        # Parse the date from the request
-        entry_date = datetime.strptime(date, '%Y-%m-%d')
-        
-        # Get the start and end of the requested day
-        start_date = entry_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + timedelta(days=1)
-        
-        # Query entries for that date
-        entries = Entry.query.filter_by(user_id=current_user.id).filter(
-            Entry.date >= start_date,
-            Entry.date < end_date
-        ).all()
-        
-        # Return as JSON
-        return jsonify([entry.to_dict() for entry in entries]), 200
-    
+        target_date = datetime.strptime(date, '%Y-%m-%d')
     except ValueError:
-        return jsonify({'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        return jsonify({'message': 'Invalid date format, use YYYY-MM-DD'}), 400
+    
+    # Get entries from the specified date
+    entries = Entry.query.filter_by(user_id=current_user.id).filter(
+        db.func.date(Entry.date) == target_date.date()
+    ).all()
+    
+    return jsonify([entry.to_dict() for entry in entries])
 
-@main_bp.route('/api/subscription')
+@main.route('/api/subscription', methods=['GET'])
 @login_required
 def api_subscription():
-    # Check if user has a subscription
-    subscription = Subscription.query.filter_by(user_id=current_user.id).first()
-    
-    if subscription:
-        return jsonify(subscription.to_dict()), 200
-    
-    # If no subscription, return trial information
-    return jsonify({
+    """API endpoint to get user's subscription status"""
+    user_data = {
         'isSubscribed': current_user.is_subscribed,
         'isInTrial': current_user.is_in_trial,
-        'trialEndDate': current_user.trial_end_date.strftime('%Y-%m-%d') if current_user.trial_end_date else None
-    }), 200
+        'trialEndDate': current_user.trial_end_date.isoformat() if current_user.trial_end_date else None
+    }
+    
+    # Get current subscription details if available
+    subscription = Subscription.query.filter_by(
+        user_id=current_user.id, 
+        status='active'
+    ).first()
+    
+    if subscription:
+        user_data.update({
+            'subscription': subscription.to_dict()
+        })
+    
+    return jsonify(user_data)
