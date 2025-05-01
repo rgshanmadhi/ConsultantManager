@@ -1,4 +1,9 @@
+"""
+Subscription model for the Serene application
+This model represents user subscriptions for premium features
+"""
 from datetime import datetime
+
 from app import db
 
 class Subscription(db.Model):
@@ -11,7 +16,7 @@ class Subscription(db.Model):
     current_period_end = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Optional fields for more complex subscription handling
+    # Stripe fields for integration
     stripe_customer_id = db.Column(db.String(120), nullable=True)
     stripe_subscription_id = db.Column(db.String(120), nullable=True)
     plan = db.Column(db.String(20), nullable=False, default='monthly')  # monthly, annual
@@ -20,13 +25,15 @@ class Subscription(db.Model):
         """Convert to dictionary for API responses"""
         return {
             'id': self.id,
-            'userId': self.user_id,
+            'user_id': self.user_id,
             'status': self.status,
-            'currentPeriodStart': self.current_period_start.isoformat(),
-            'currentPeriodEnd': self.current_period_end.isoformat(),
+            'current_period_start': self.current_period_start.isoformat() if self.current_period_start else None,
+            'current_period_end': self.current_period_end.isoformat() if self.current_period_end else None,
             'plan': self.plan,
-            'createdAt': self.created_at.isoformat()
+            'stripe_customer_id': self.stripe_customer_id,
+            'stripe_subscription_id': self.stripe_subscription_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
     def __repr__(self):
-        return f'<Subscription {self.id} - {self.status}>'
+        return f'<Subscription {self.id} {self.user_id} {self.status}>'

@@ -1,6 +1,10 @@
+"""
+Authentication forms for the Serene application
+"""
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
+
 from app.models.user import User
 
 class LoginForm(FlaskForm):
@@ -36,11 +40,13 @@ class RegistrationForm(FlaskForm):
     submit = SubmitField('Register')
     
     def validate_username(self, username):
+        """Check if username is already taken"""
         user = User.query.filter_by(username=username.data).first()
         if user:
-            raise ValidationError('Username already taken. Please choose a different one.')
+            raise ValidationError('Username is already taken. Please choose a different one.')
     
     def validate_email(self, email):
+        """Check if email is already registered"""
         user = User.query.filter_by(email=email.data).first()
         if user:
-            raise ValidationError('Email already registered. Please use a different one or login.')
+            raise ValidationError('Email is already registered. Please use a different one or try logging in.')

@@ -1,4 +1,9 @@
+"""
+Entry model for the Serene application
+This model represents journal entries created by users
+"""
 from datetime import datetime
+
 from app import db
 
 class Entry(db.Model):
@@ -16,13 +21,13 @@ class Entry(db.Model):
         """Convert to dictionary for API responses"""
         return {
             'id': self.id,
-            'userId': self.user_id,
-            'date': self.date.isoformat(),
+            'user_id': self.user_id,
+            'date': self.date.isoformat() if self.date else None,
             'mood': self.mood,
-            'journalEntry': self.journal_entry,
+            'journal_entry': self.journal_entry,
             'sentiment': self.sentiment,
-            'createdAt': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
     def __repr__(self):
-        return f'<Entry {self.id} - {self.date.strftime("%Y-%m-%d")}>'
+        return f'<Entry {self.id} {self.date.strftime("%Y-%m-%d")} {self.mood}>'

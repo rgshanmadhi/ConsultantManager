@@ -1,124 +1,81 @@
-from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, abort
+"""
+Main routes for the Serene application
+"""
+from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_login import login_required, current_user
-from app import db
-from app.models.user import User
-from app.models.entry import Entry
-from app.models.subscription import Subscription
-from app.forms.subscription import SubscriptionForm
-from datetime import datetime, timedelta
-import json
+from datetime import datetime
 
-# Create blueprint
+from app import db
+from app.models.entry import Entry
+
+# Create a blueprint for main routes
 main = Blueprint('main', __name__)
 
 @main.route('/')
+def index():
+    """Landing page for the application"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    return render_template('index.html', title='Welcome to Serene')
+
+@main.route('/dashboard')
 @login_required
 def dashboard():
-    """Dashboard page displaying user's mood data and recent entries"""
+    """Dashboard page with overall metrics and visualizations"""
     # Get recent entries
-    entries = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc()).limit(5).all()
+    recent_entries = Entry.query.filter_by(user_id=current_user.id) \
+                               .order_by(Entry.date.desc()) \
+                               .limit(5) \
+                               .all()
     
-    return render_template('dashboard.html', entries=entries)
+    # Count entries by mood
+    mood_counts = db.session.query(Entry.mood, db.func.count(Entry.id)) \
+                            .filter(Entry.user_id == current_user.id) \
+                            .group_by(Entry.mood) \
+                            .all()
+    
+    # Format for chart
+    mood_data = {mood: count for mood, count in mood_counts}
+    
+    # Check subscription status
+    is_subscribed = current_user.is_subscribed
+    is_in_trial = current_user.is_in_trial
+    trial_days_left = 0
+    
+    if is_in_trial and current_user.trial_end_date:
+        trial_days_left = max(0, (current_user.trial_end_date - datetime.utcnow()).days)
+    
+    return render_template('dashboard.html', 
+                          title='Dashboard',
+                          recent_entries=recent_entries,
+                          mood_data=mood_data,
+                          is_subscribed=is_subscribed,
+                          is_in_trial=is_in_trial,
+                          trial_days_left=trial_days_left)
 
-@main.route('/subscription', methods=['GET', 'POST'])
+@main.route('/settings')
 @login_required
-def subscription():
-    """Subscription management page"""
-    form = SubscriptionForm()
-    
-    # Get current subscription
-    current_subscription = Subscription.query.filter_by(
-        user_id=current_user.id, 
-        status='active'
-    ).first()
-    
-    if form.validate_on_submit():
-        # This is a simplified implementation without real payment processing
-        # In production, you would integrate with Stripe or another payment processor
-        
-        # Calculate subscription end date based on plan
-        if form.plan.data == 'monthly':
-            end_date = datetime.utcnow() + timedelta(days=30)
-        else:  # annual
-            end_date = datetime.utcnow() + timedelta(days=365)
-        
-        # Create new subscription or update existing one
-        if current_subscription:
-            current_subscription.status = 'active'
-            current_subscription.current_period_start = datetime.utcnow()
-            current_subscription.current_period_end = end_date
-            current_subscription.plan = form.plan.data
-        else:
-            new_subscription = Subscription(
-                user_id=current_user.id,
-                status='active',
-                current_period_start=datetime.utcnow(),
-                current_period_end=end_date,
-                plan=form.plan.data
-            )
-            db.session.add(new_subscription)
-        
-        # Update user's subscription status
-        current_user.is_subscribed = True
-        current_user.is_in_trial = False
-        
-        db.session.commit()
-        flash('Subscription successful!', 'success')
-        return redirect(url_for('main.dashboard'))
-    
-    return render_template('subscription.html', form=form, subscription=current_subscription)
+def settings():
+    """User settings page"""
+    return render_template('settings.html', title='Settings')
 
-# API Routes
-@main.route('/api/entries', methods=['GET'])
+@main.route('/profile')
 @login_required
-def api_entries():
-    """API endpoint to get user's journal entries"""
-    # Check subscription
-    if not current_user.is_subscribed and not current_user.is_in_trial:
-        return jsonify({'message': 'Subscription required'}), 403
-    
-    entries = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc()).all()
-    return jsonify([entry.to_dict() for entry in entries])
+def profile():
+    """User profile page"""
+    return render_template('profile.html', title='My Profile')
 
-@main.route('/api/entries/<date>', methods=['GET'])
-@login_required
-def api_entries_by_date(date):
-    """API endpoint to get user's journal entries for a specific date"""
-    # Check subscription
-    if not current_user.is_subscribed and not current_user.is_in_trial:
-        return jsonify({'message': 'Subscription required'}), 403
-    
-    try:
-        target_date = datetime.strptime(date, '%Y-%m-%d')
-    except ValueError:
-        return jsonify({'message': 'Invalid date format, use YYYY-MM-DD'}), 400
-    
-    # Get entries from the specified date
-    entries = Entry.query.filter_by(user_id=current_user.id).filter(
-        db.func.date(Entry.date) == target_date.date()
-    ).all()
-    
-    return jsonify([entry.to_dict() for entry in entries])
+@main.route('/about')
+def about():
+    """About the application"""
+    return render_template('about.html', title='About Serene')
 
-@main.route('/api/subscription', methods=['GET'])
-@login_required
-def api_subscription():
-    """API endpoint to get user's subscription status"""
-    user_data = {
-        'isSubscribed': current_user.is_subscribed,
-        'isInTrial': current_user.is_in_trial,
-        'trialEndDate': current_user.trial_end_date.isoformat() if current_user.trial_end_date else None
-    }
-    
-    # Get current subscription details if available
-    subscription = Subscription.query.filter_by(
-        user_id=current_user.id, 
-        status='active'
-    ).first()
-    
-    if subscription:
-        user_data.update({
-            'subscription': subscription.to_dict()
-        })
-    
-    return jsonify(user_data)
+@main.route('/privacy')
+def privacy():
+    """Privacy policy page"""
+    return render_template('privacy.html', title='Privacy Policy')
+
+@main.route('/terms')
+def terms():
+    """Terms of service page"""
+    return render_template('terms.html', title='Terms of Service')

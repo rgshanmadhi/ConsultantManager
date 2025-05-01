@@ -1,3 +1,6 @@
+"""
+Subscription forms for the Serene application
+"""
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Length, Regexp
@@ -8,7 +11,6 @@ class SubscriptionForm(FlaskForm):
                                ('annual', 'Annual - $89.99/year')], 
                       validators=[DataRequired()])
     
-    # Credit card fields
     card_name = StringField('Cardholder Name', 
                           validators=[DataRequired(), 
                                      Length(min=2, max=120)])
