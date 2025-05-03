@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { useEffect } from "react";
+import * as localStorageService from "@/lib/localStorageService";
 
 // Pages
 import Dashboard from "@/pages/Dashboard";
@@ -34,6 +36,11 @@ function Router() {
 }
 
 function App() {
+  // Initialize local storage when app first loads
+  useEffect(() => {
+    localStorageService.initLocalStorage();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="serene-theme">
