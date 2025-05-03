@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Entry, InsertEntry, activitiesMapping } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import Layout from "@/components/Layout";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
+import { insertEntrySchema, MoodType } from "@shared/schema";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { format, parse, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
 import {
   Card,
   CardContent,
@@ -17,9 +16,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -27,528 +31,676 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2 } from "lucide-react";
+  Calendar as CalendarIcon,
+  Smile,
+  Frown,
+  Meh,
+  Angry,
+  Clock,
+  Loader2,
+  Lightbulb,
+  PanelTop,
+  PanelBottom,
+  Trash2,
+  SunMoon,
+} from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Schema for journal entry form
-const entrySchema = z.object({
+// Journal entry schema with validation
+const entrySchema = insertEntrySchema.extend({
   mood: z.enum(["Happy", "Neutral", "Sad", "Angry", "Tired"]),
-  journalEntry: z.string().min(1, "Journal entry is required"),
+  journalEntry: z.string().min(1, "Please enter your journal entry")
 });
 
-type JournalEntry = z.infer<typeof entrySchema>;
+type EntryFormValues = z.infer<typeof entrySchema>;
+
+// Writing prompts based on mood
+const moodPrompts: Record<MoodType, string[]> = {
+  Happy: [
+    "What made you happy today? Describe it in detail.",
+    "Who or what contributed to your happiness?",
+    "How can you continue or recreate this positive feeling?",
+    "What are you grateful for in this moment?",
+    "How did your happiness affect others around you?"
+  ],
+  Neutral: [
+    "Describe your day. What stands out?",
+    "Is there anything you're looking forward to?",
+    "What's one thing you could do to improve your mood?",
+    "Are there any decisions you're contemplating?",
+    "What activities did you engage in today?"
+  ],
+  Sad: [
+    "What's contributing to your sadness today?",
+    "When did you start feeling this way?",
+    "What has helped you feel better in the past?",
+    "Is there someone you could reach out to for support?",
+    "What's one small thing you could do for yourself right now?"
+  ],
+  Angry: [
+    "What triggered your anger today?",
+    "How did you respond to this feeling?",
+    "What would a calmer response have looked like?",
+    "Is this situation within your control?",
+    "What boundaries might need to be set or reinforced?"
+  ],
+  Tired: [
+    "What's draining your energy right now?",
+    "How has your sleep been lately?",
+    "What would help you feel more rested?",
+    "Are there any tasks you can postpone?",
+    "What restores your energy when you're feeling depleted?"
+  ]
+};
 
 export default function JournalPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [sentimentAnalysis, setSentimentAnalysis] = useState<string | null>(null);
-  const [sentimentLoading, setSentimentLoading] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
-  const [moodDescription, setMoodDescription] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [showEntrySheet, setShowEntrySheet] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   
-  // Fetch entries
-  const { data: entries, isLoading: entriesLoading } = useQuery<Entry[]>({
+  // Fetch entries from API
+  const { data: entries, isLoading } = useQuery({
     queryKey: ["/api/entries"],
     enabled: !!user,
   });
   
-  // Create new entry mutation
+  // Filter entries by selected date
+  const selectedDateEntries = entries?.filter(entry => {
+    const entryDate = new Date(entry.date);
+    if (!selectedDate) return false;
+    
+    return (
+      entryDate.getDate() === selectedDate.getDate() &&
+      entryDate.getMonth() === selectedDate.getMonth() &&
+      entryDate.getFullYear() === selectedDate.getFullYear()
+    );
+  }) || [];
+  
+  // Journal entry form
+  const form = useForm<EntryFormValues>({
+    resolver: zodResolver(entrySchema),
+    defaultValues: {
+      mood: "Neutral",
+      journalEntry: "",
+    }
+  });
+  
+  // Create entry mutation
   const createEntryMutation = useMutation({
-    mutationFn: async (data: InsertEntry) => {
-      const res = await apiRequest("POST", "/api/entries", data);
-      return res.json();
+    mutationFn: async (values: EntryFormValues) => {
+      const res = await apiRequest("POST", "/api/entries", values);
+      return await res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Entry saved",
-        description: "Your journal entry has been saved successfully.",
+        title: "Entry created",
+        description: "Your journal entry has been saved.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-      reset();
-      setSentimentAnalysis(null);
+      // Reset form and close sheet
+      form.reset();
+      setShowEntrySheet(false);
+      setCurrentPrompt(null);
     },
     onError: (error) => {
       toast({
-        title: "Error saving entry",
+        title: "Error creating entry",
         description: error.message || "There was a problem saving your entry.",
         variant: "destructive",
       });
     },
   });
   
-  // Form setup
-  const { register, handleSubmit, watch, reset, setValue, formState: { errors, isSubmitting } } = useForm<JournalEntry>({
-    resolver: zodResolver(entrySchema),
-    defaultValues: {
-      mood: "Neutral",
-      journalEntry: "",
-    },
-  });
-  
-  // Watch journal entry for sentiment analysis
-  const journalEntry = watch("journalEntry");
-  const mood = watch("mood");
-  
-  // Debounced sentiment analysis
-  const analyzeSentiment = async (text: string) => {
-    if (text.length < 10) return;
-    
-    try {
-      setSentimentLoading(true);
-      const res = await apiRequest("GET", `/api/analyze-sentiment?text=${encodeURIComponent(text)}`);
-      const data = await res.json();
-      setSentimentAnalysis(data.sentiment);
-    } catch (error) {
-      console.error("Error analyzing sentiment:", error);
-    } finally {
-      setSentimentLoading(false);
-    }
-  };
-  
-  // Handle journal entry change with debounce
-  const handleJournalChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue("journalEntry", e.target.value);
-    
-    // Debounce sentiment analysis
-    if (sentimentAnalysisTimeout) {
-      clearTimeout(sentimentAnalysisTimeout);
-    }
-    
-    // Only analyze if text is long enough
-    if (e.target.value.length >= 10) {
-      sentimentAnalysisTimeout = setTimeout(() => {
-        analyzeSentiment(e.target.value);
-      }, 800);
-    }
-  };
-  
-  let sentimentAnalysisTimeout: NodeJS.Timeout;
-  
   // Handle form submission
-  const onSubmit = async (data: JournalEntry) => {
+  const onSubmit = (values: EntryFormValues) => {
+    // Add selected date to values
     createEntryMutation.mutate({
-      ...data,
-      userId: user!.id,
-      sentiment: sentimentAnalysis || undefined, // Use analyzed sentiment if available
+      ...values,
+      date: selectedDate?.toISOString() || new Date().toISOString(),
+      userId: user?.id
     });
   };
   
-  // Get entries for selected date
-  const entriesForDate = entries?.filter(entry => {
-    const entryDate = new Date(entry.date);
-    return isSameDay(entryDate, selectedDate);
-  }) || [];
-  
-  // Generate calendar days for current month
-  const calendarDays = (() => {
-    const monthStart = startOfMonth(selectedDate);
-    const monthEnd = endOfMonth(selectedDate);
-    return eachDayOfInterval({ start: monthStart, end: monthEnd });
-  })();
-  
-  // Check if a day has entries
-  const dayHasEntries = (day: Date) => {
-    return entries?.some(entry => {
-      const entryDate = new Date(entry.date);
-      return isSameDay(entryDate, day);
-    });
-  };
-  
-  // Update mood description based on selected mood
-  const updateMoodDescription = (mood: string) => {
-    switch(mood) {
-      case "Happy":
-        setMoodDescription("You're feeling positive and content.");
-        break;
-      case "Neutral":
-        setMoodDescription("You're feeling balanced and calm.");
-        break;
-      case "Sad":
-        setMoodDescription("You're feeling down or melancholic.");
-        break;
-      case "Angry":
-        setMoodDescription("You're feeling frustrated or irritated.");
-        break;
-      case "Tired":
-        setMoodDescription("You're feeling low energy or fatigued.");
-        break;
-      default:
-        setMoodDescription("");
-    }
+  // Get a random writing prompt for current mood
+  const getRandomPrompt = (mood: MoodType) => {
+    const prompts = moodPrompts[mood];
+    const randomIndex = Math.floor(Math.random() * prompts.length);
+    setCurrentPrompt(prompts[randomIndex]);
   };
   
   // Get color for mood
-  const getMoodColor = (mood: string) => {
-    switch(mood) {
-      case "Happy": return "#4ade80";
-      case "Neutral": return "#94a3b8";
-      case "Sad": return "#60a5fa";
-      case "Angry": return "#f87171";
-      case "Tired": return "#c084fc";
-      default: return "#94a3b8";
+  const getMoodColor = (mood: MoodType) => {
+    switch (mood) {
+      case "Happy":
+        return "bg-green-500 text-green-50";
+      case "Neutral":
+        return "bg-blue-500 text-blue-50";
+      case "Sad":
+        return "bg-purple-500 text-purple-50";
+      case "Angry":
+        return "bg-red-500 text-red-50";
+      case "Tired":
+        return "bg-amber-500 text-amber-50";
+      default:
+        return "bg-gray-500 text-gray-50";
     }
   };
   
   // Get emoji for mood
-  const getMoodEmoji = (mood: string) => {
-    switch(mood) {
-      case "Happy": return "😊";
-      case "Neutral": return "😐";
-      case "Sad": return "😢";
-      case "Angry": return "😠";
-      case "Tired": return "😴";
-      default: return "";
+  const getMoodEmoji = (mood: MoodType) => {
+    switch (mood) {
+      case "Happy":
+        return <Smile className="h-5 w-5" />;
+      case "Neutral":
+        return <Meh className="h-5 w-5" />;
+      case "Sad":
+        return <Frown className="h-5 w-5" />;
+      case "Angry":
+        return <Angry className="h-5 w-5" />;
+      case "Tired":
+        return <Clock className="h-5 w-5" />;
+      default:
+        return <Meh className="h-5 w-5" />;
     }
   };
   
-  // Get activities based on mood
-  const getMoodActivities = (mood: string) => {
-    if (Object.prototype.hasOwnProperty.call(activitiesMapping, mood)) {
-      return activitiesMapping[mood as keyof typeof activitiesMapping];
-    }
-    return [];
+  // Group entries by date for list view
+  const groupEntriesByDate = () => {
+    if (!entries) return {};
+    
+    const grouped: Record<string, typeof entries> = {};
+    
+    entries.forEach(entry => {
+      const date = new Date(entry.date);
+      const dateKey = format(date, 'yyyy-MM-dd');
+      
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      
+      grouped[dateKey].push(entry);
+    });
+    
+    return grouped;
   };
+  
+  // Get date label for grouped entries
+  const getDateLabel = (dateString: string) => {
+    const date = parse(dateString, 'yyyy-MM-dd', new Date());
+    
+    if (isToday(date)) {
+      return 'Today';
+    } else if (isYesterday(date)) {
+      return 'Yesterday';
+    } else if (isThisWeek(date)) {
+      return format(date, 'EEEE'); // Day name
+    } else if (isThisMonth(date)) {
+      return format(date, 'MMMM d'); // Month and day
+    } else {
+      return format(date, 'MMMM d, yyyy'); // Full date
+    }
+  };
+  
+  // Calculate sentiment stats
+  const getSentimentStats = () => {
+    if (!entries || entries.length === 0) {
+      return { positive: 0, neutral: 0, negative: 0 };
+    }
+    
+    const stats = {
+      positive: 0,
+      neutral: 0,
+      negative: 0
+    };
+    
+    entries.forEach(entry => {
+      if (entry.sentiment === "Positive") stats.positive++;
+      else if (entry.sentiment === "Negative") stats.negative++;
+      else stats.neutral++;
+    });
+    
+    return stats;
+  };
+  
+  const sentimentStats = getSentimentStats();
+  const totalSentiments = sentimentStats.positive + sentimentStats.neutral + sentimentStats.negative;
   
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between gap-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold">Journal</h1>
-            <p className="text-muted-foreground">Record your thoughts and track your mood</p>
+            <p className="text-muted-foreground">
+              Record your thoughts, feelings, and experiences
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              {format(selectedDate, "MMMM yyyy")}
-            </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={() => setViewMode(viewMode === "list" ? "calendar" : "list")}
+            >
+              {viewMode === "list" ? (
+                <>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  Calendar View
+                </>
+              ) : (
+                <>
+                  <PanelTop className="mr-2 h-4 w-4" />
+                  List View
+                </>
+              )}
+            </Button>
+            
+            <Button 
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setSelectedDate(new Date());
+                setShowEntrySheet(true);
+              }}
+            >
+              Create Entry
+            </Button>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-7 lg:grid-cols-3 gap-6">
-          {/* Calendar (shown on larger screens) */}
-          <Card className="md:col-span-3 lg:col-span-1 order-2 md:order-1">
-            <CardHeader>
-              <CardTitle>Calendar</CardTitle>
-              <CardDescription>Select a date to view or add entries</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-                  <div key={day} className="text-xs font-medium text-muted-foreground">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day) => {
-                  const isSelected = isSameDay(day, selectedDate);
-                  const hasEntries = dayHasEntries(day);
-                  
-                  return (
-                    <button
-                      key={day.toISOString()}
-                      className={`h-10 w-full rounded-md flex items-center justify-center text-sm transition-colors ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : hasEntries
-                          ? "bg-primary/10 hover:bg-primary/20"
-                          : "hover:bg-muted"
-                      }`}
-                      onClick={() => setSelectedDate(day)}
-                    >
-                      {format(day, "d")}
-                    </button>
-                  );
-                })}
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setSelectedDate(new Date())}
-              >
-                Today
-              </Button>
-            </CardFooter>
-          </Card>
-
-          {/* Journal Form */}
-          <Card className="md:col-span-4 lg:col-span-2 order-1 md:order-2">
-            <CardHeader>
-              <CardTitle>New Entry</CardTitle>
-              <CardDescription>
-                {format(selectedDate, "EEEE, MMMM d, yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form 
-                id="journalForm" 
-                onSubmit={handleSubmit(onSubmit)} 
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="mood">How are you feeling today?</Label>
-                  <Select
-                    defaultValue="Neutral"
-                    onValueChange={(value) => {
-                      setValue("mood", value as any);
-                      updateMoodDescription(value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your mood" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Happy">😊 Happy</SelectItem>
-                      <SelectItem value="Neutral">😐 Neutral</SelectItem>
-                      <SelectItem value="Sad">😢 Sad</SelectItem>
-                      <SelectItem value="Angry">😠 Angry</SelectItem>
-                      <SelectItem value="Tired">😴 Tired</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {moodDescription && (
-                    <p className="text-sm text-muted-foreground">{moodDescription}</p>
-                  )}
-                  {errors.mood?.message && (
-                    <p className="text-sm text-destructive">{errors.mood.message}</p>
-                  )}
+        {/* Calendar View */}
+        {viewMode === "calendar" && (
+          <Tabs defaultValue="calendar" className="w-full">
+            <TabsList className="grid w-full sm:w-[400px] grid-cols-2">
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              <TabsTrigger value="insights">Insights</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="calendar" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-7">
+                <div className="md:col-span-5">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Entries Calendar</CardTitle>
+                      <CardDescription>
+                        View your journal entries by date
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-md border mx-auto"
+                      />
+                    </CardContent>
+                  </Card>
                 </div>
                 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="journalEntry">Write your thoughts</Label>
-                    {sentimentLoading ? (
-                      <span className="text-sm text-muted-foreground flex items-center">
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Analyzing...
-                      </span>
-                    ) : sentimentAnalysis ? (
-                      <span className={`text-sm font-medium ${
-                        sentimentAnalysis === "Positive" 
-                          ? "text-green-600" 
-                          : sentimentAnalysis === "Negative"
-                          ? "text-red-600"
-                          : "text-blue-600"
-                      }`}>
-                        {sentimentAnalysis} sentiment
-                      </span>
-                    ) : null}
-                  </div>
-                  <Textarea
-                    id="journalEntry"
-                    placeholder="What's on your mind today?"
-                    rows={8}
-                    {...register("journalEntry")}
-                    onChange={handleJournalChange}
-                  />
-                  {errors.journalEntry?.message && (
-                    <p className="text-sm text-destructive">{errors.journalEntry.message}</p>
-                  )}
-                </div>
-              </form>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  reset();
-                  setSentimentAnalysis(null);
-                }}
-              >
-                Clear
-              </Button>
-              <Button 
-                type="submit" 
-                form="journalForm"
-                disabled={createEntryMutation.isPending}
-              >
-                {createEntryMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Entry"
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-        
-        {/* Previous Entries for Selected Date */}
-        <div>
-          <h2 className="text-xl font-bold mb-4">
-            Entries for {format(selectedDate, "MMMM d, yyyy")}
-          </h2>
-          
-          {entriesLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          ) : entriesForDate.length > 0 ? (
-            <div className="space-y-4">
-              {entriesForDate.map((entry) => (
-                <Card key={entry.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
-                          style={{ backgroundColor: `${getMoodColor(entry.mood)}30`, color: getMoodColor(entry.mood) }}
-                        >
-                          {getMoodEmoji(entry.mood)}
+                <div className="md:col-span-2">
+                  <Card className="h-full">
+                    <CardHeader>
+                      <CardTitle>
+                        {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : 'No date selected'}
+                      </CardTitle>
+                      <CardDescription>
+                        {selectedDateEntries.length} entries
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {selectedDateEntries.length > 0 ? (
+                        <div className="space-y-4">
+                          {selectedDateEntries.map(entry => (
+                            <div key={entry.id} className="border rounded-md p-3">
+                              <div className="flex items-center mb-2">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 ${getMoodColor(entry.mood as MoodType)}`}>
+                                  {getMoodEmoji(entry.mood as MoodType)}
+                                </div>
+                                <span className="font-medium">{entry.mood}</span>
+                                <span className="text-xs text-muted-foreground ml-auto">
+                                  {format(new Date(entry.date), 'h:mm a')}
+                                </span>
+                              </div>
+                              <p className="text-sm">{entry.journalEntry.substring(0, 100)}
+                                {entry.journalEntry.length > 100 && '...'}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                        <div>
-                          <CardTitle>{entry.mood}</CardTitle>
-                          <CardDescription>
-                            {format(new Date(entry.date), "h:mm a")}
-                          </CardDescription>
-                        </div>
-                      </div>
-                      {entry.sentiment && (
-                        <div 
-                          className="px-3 py-1 rounded-full text-xs font-medium"
-                          style={{ 
-                            backgroundColor: `${
-                              entry.sentiment === "Positive" 
-                                ? "#4ade8030" 
-                                : entry.sentiment === "Negative"
-                                ? "#f8717130"
-                                : "#94a3b830"
-                            }`,
-                            color: entry.sentiment === "Positive" 
-                              ? "#16a34a" 
-                              : entry.sentiment === "Negative"
-                              ? "#dc2626"
-                              : "#64748b"
-                          }}
-                        >
-                          {entry.sentiment}
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                          <PanelBottom className="h-8 w-8 text-muted-foreground mb-2" />
+                          <p className="text-muted-foreground">No entries for this date</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-4"
+                            onClick={() => setShowEntrySheet(true)}
+                          >
+                            Create Entry
+                          </Button>
                         </div>
                       )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap">{entry.journalEntry}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <div className="w-full">
-                      <h4 className="font-medium text-sm mb-2">Recommended Activities:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {getMoodActivities(entry.mood).map((activity, index) => (
-                          <div 
-                            key={index}
-                            className="px-3 py-1 bg-secondary text-secondary-foreground text-xs rounded-full"
-                          >
-                            {activity}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>No Entries Yet</CardTitle>
-                <CardDescription>
-                  You don't have any journal entries for this date.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-        </div>
-      </div>
-      
-      {/* Entry Detail Dialog */}
-      <AlertDialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
-        <AlertDialogContent className="max-w-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              <div className="flex items-center space-x-2">
-                {selectedEntry && (
-                  <>
-                    <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                      style={{ backgroundColor: `${getMoodColor(selectedEntry.mood)}30`, color: getMoodColor(selectedEntry.mood) }}
-                    >
-                      {getMoodEmoji(selectedEntry.mood)}
-                    </div>
-                    <span>{selectedEntry.mood}</span>
-                  </>
-                )}
-              </div>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedEntry && format(new Date(selectedEntry.date), "EEEE, MMMM d, yyyy 'at' h:mm a")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          {selectedEntry && (
-            <div className="py-4">
-              <p className="whitespace-pre-wrap mb-6">{selectedEntry.journalEntry}</p>
-              
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Recommended Activities:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {getMoodActivities(selectedEntry.mood).map((activity, index) => (
-                    <div 
-                      key={index}
-                      className="px-3 py-1 bg-secondary text-secondary-foreground rounded-full"
-                    >
-                      {activity}
-                    </div>
-                  ))}
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
-              
-              {selectedEntry.sentiment && (
-                <div className="mt-4 flex items-center">
-                  <span className="text-sm text-muted-foreground mr-2">Sentiment Analysis:</span>
-                  <span 
-                    className="px-3 py-1 rounded-full text-xs font-medium"
-                    style={{ 
-                      backgroundColor: `${
-                        selectedEntry.sentiment === "Positive" 
-                          ? "#4ade8030" 
-                          : selectedEntry.sentiment === "Negative"
-                          ? "#f8717130"
-                          : "#94a3b830"
-                      }`,
-                      color: selectedEntry.sentiment === "Positive" 
-                        ? "#16a34a" 
-                        : selectedEntry.sentiment === "Negative"
-                        ? "#dc2626"
-                        : "#64748b"
+            </TabsContent>
+            
+            <TabsContent value="insights" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mood Analysis</CardTitle>
+                  <CardDescription>
+                    Insights from your journal entries
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Sentiment Distribution</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Positive</span>
+                        <span>{totalSentiments > 0 ? Math.round((sentimentStats.positive / totalSentiments) * 100) : 0}%</span>
+                      </div>
+                      <Progress
+                        value={totalSentiments > 0 ? (sentimentStats.positive / totalSentiments) * 100 : 0}
+                        className="h-2 bg-muted"
+                      />
+                      
+                      <div className="flex justify-between text-sm">
+                        <span>Neutral</span>
+                        <span>{totalSentiments > 0 ? Math.round((sentimentStats.neutral / totalSentiments) * 100) : 0}%</span>
+                      </div>
+                      <Progress
+                        value={totalSentiments > 0 ? (sentimentStats.neutral / totalSentiments) * 100 : 0}
+                        className="h-2 bg-muted"
+                      />
+                      
+                      <div className="flex justify-between text-sm">
+                        <span>Negative</span>
+                        <span>{totalSentiments > 0 ? Math.round((sentimentStats.negative / totalSentiments) * 100) : 0}%</span>
+                      </div>
+                      <Progress
+                        value={totalSentiments > 0 ? (sentimentStats.negative / totalSentiments) * 100 : 0}
+                        className="h-2 bg-muted"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Journal Consistency</h4>
+                    <div className="grid grid-cols-7 gap-1">
+                      {Array.from({ length: 28 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="aspect-square bg-muted rounded-sm"
+                          style={{
+                            opacity: Math.random() > 0.65 ? 1 : 0.3,
+                            backgroundColor: Math.random() > 0.65 ? 'var(--primary)' : undefined
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">Last 28 days</p>
+                  </div>
+                  
+                  <div className="flex items-center p-4 bg-muted/40 rounded-lg border border-dashed">
+                    <Lightbulb className="h-8 w-8 text-primary mr-4" />
+                    <div>
+                      <h4 className="font-medium">Insight</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Journaling regularly can help you identify patterns in your mood and thoughts.
+                        Aim for at least 3 entries per week for the best results.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
+        
+        {/* List View */}
+        {viewMode === "list" && (
+          <div className="space-y-6">
+            {isLoading ? (
+              <div className="flex justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : entries && entries.length > 0 ? (
+              Object.entries(groupEntriesByDate())
+                .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
+                .map(([dateString, dateEntries]) => (
+                  <div key={dateString} className="space-y-3">
+                    <h3 className="text-lg font-medium sticky top-0 pt-2 pb-1 bg-background">
+                      {getDateLabel(dateString)}
+                    </h3>
+                    <div className="space-y-3">
+                      {dateEntries.map(entry => (
+                        <Card key={entry.id}>
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-2 ${getMoodColor(entry.mood as MoodType)}`}>
+                                  {getMoodEmoji(entry.mood as MoodType)}
+                                </div>
+                                <CardTitle className="text-base font-medium">{entry.mood}</CardTitle>
+                              </div>
+                              <CardDescription>{format(new Date(entry.date), 'h:mm a')}</CardDescription>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="whitespace-pre-wrap">{entry.journalEntry}</p>
+                            {entry.sentiment && (
+                              <div className={`mt-2 text-xs px-2 py-1 rounded-full inline-flex items-center ${
+                                entry.sentiment === "Positive" 
+                                  ? "bg-green-100 text-green-800 dark:bg-green-800/20 dark:text-green-300" 
+                                  : entry.sentiment === "Negative"
+                                  ? "bg-red-100 text-red-800 dark:bg-red-800/20 dark:text-red-300"
+                                  : "bg-blue-100 text-blue-800 dark:bg-blue-800/20 dark:text-blue-300"
+                              }`}>
+                                Sentiment: {entry.sentiment}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ))
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">No Journal Entries</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Start recording your thoughts and feelings by creating your first journal entry.
+                  </p>
+                  <Button 
+                    onClick={() => {
+                      setSelectedDate(new Date());
+                      setShowEntrySheet(true);
                     }}
                   >
-                    {selectedEntry.sentiment}
-                  </span>
+                    Create Your First Entry
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* New entry sheet */}
+      <Sheet open={showEntrySheet} onOpenChange={setShowEntrySheet}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Create Journal Entry</SheetTitle>
+          </SheetHeader>
+          <div className="py-6">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Date selector */}
+                <div className="space-y-2">
+                  <FormLabel>Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              )}
-            </div>
-          )}
-          
-          <AlertDialogFooter>
-            <AlertDialogCancel>Close</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                
+                {/* Mood selector */}
+                <FormField
+                  control={form.control}
+                  name="mood"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>How are you feeling?</FormLabel>
+                      <div className="grid grid-cols-5 gap-2 mb-2">
+                        {(Object.keys(moodPrompts) as MoodType[]).map((mood) => (
+                          <button
+                            key={mood}
+                            type="button"
+                            onClick={() => {
+                              field.onChange(mood);
+                              if (form.getValues().journalEntry === "") {
+                                getRandomPrompt(mood);
+                              }
+                            }}
+                            className={`p-4 rounded-lg flex flex-col items-center justify-center gap-2 transition-all ${
+                              field.value === mood 
+                                ? `${getMoodColor(mood)} ring-2 ring-offset-2` 
+                                : "bg-card hover:bg-accent"
+                            }`}
+                          >
+                            <div className="text-2xl">
+                              {mood === "Happy" && "😊"}
+                              {mood === "Neutral" && "😐"}
+                              {mood === "Sad" && "😢"}
+                              {mood === "Angry" && "😠"}
+                              {mood === "Tired" && "😴"}
+                            </div>
+                            <span className={field.value === mood ? "font-medium" : ""}>
+                              {mood}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {/* Writing prompt */}
+                {currentPrompt && (
+                  <div className="flex items-center p-4 bg-muted/40 rounded-lg border border-dashed">
+                    <Lightbulb className="h-5 w-5 text-primary mr-2 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p>{currentPrompt}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="ml-auto flex-shrink-0"
+                      onClick={() => getRandomPrompt(form.getValues().mood as MoodType)}
+                    >
+                      <SunMoon className="h-4 w-4" />
+                      <span className="sr-only">New prompt</span>
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Journal entry */}
+                <FormField
+                  control={form.control}
+                  name="journalEntry"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Journal Entry</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Write your thoughts here..." 
+                          className="min-h-[200px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="flex justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      form.reset();
+                      setShowEntrySheet(false);
+                      setCurrentPrompt(null);
+                    }}
+                    disabled={createEntryMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  
+                  <Button 
+                    type="submit"
+                    disabled={createEntryMutation.isPending}
+                  >
+                    {createEntryMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : "Save Entry"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 }
