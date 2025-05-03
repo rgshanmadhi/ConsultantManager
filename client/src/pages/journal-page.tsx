@@ -1,554 +1,302 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Entry, InsertEntry, activitiesMapping } from "@shared/schema";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import Layout from "@/components/Layout";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, ArrowLeft, PenLine, Calendar, Clock, History } from "lucide-react";
+import { MoodType, SentimentType, Entry } from "@shared/schema";
+import MoodTracker from "@/components/MoodTracker";
+import JournalEntry from "@/components/JournalEntry";
+import { apiRequest } from "@/lib/queryClient";
+import { Link, useLocation } from "wouter";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2 } from "lucide-react";
-
-// Schema for journal entry form
-const entrySchema = z.object({
-  mood: z.enum(["Happy", "Neutral", "Sad", "Angry", "Tired"]),
-  journalEntry: z.string().min(1, "Journal entry is required"),
-});
-
-type JournalEntry = z.infer<typeof entrySchema>;
+import { formatDate, getMoodEmoji, getSentimentIcon } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
 
 export default function JournalPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [sentimentAnalysis, setSentimentAnalysis] = useState<string | null>(null);
-  const [sentimentLoading, setSentimentLoading] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
-  const [moodDescription, setMoodDescription] = useState<string>("");
+  const queryClient = useQueryClient();
+  const [_, setLocation] = useLocation();
   
-  // Fetch entries
-  const { data: entries, isLoading: entriesLoading } = useQuery<Entry[]>({
-    queryKey: ["/api/entries"],
-    enabled: !!user,
+  const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
+  const [journalTab, setJournalTab] = useState<"write" | "history">("write");
+
+  // Fetch all entries
+  const { 
+    data: entries = [], 
+    isLoading: entriesLoading 
+  } = useQuery<Entry[]>({
+    queryKey: ['/api/entries'],
+    retry: 1
   });
-  
-  // Create new entry mutation
+
+  // Create entry mutation
   const createEntryMutation = useMutation({
-    mutationFn: async (data: InsertEntry) => {
-      const res = await apiRequest("POST", "/api/entries", data);
+    mutationFn: async ({ mood, journalText, sentiment }: { 
+      mood: MoodType; 
+      journalText: string; 
+      sentiment: SentimentType 
+    }) => {
+      const res = await apiRequest("POST", "/api/entries", {
+        mood,
+        journalEntry: journalText,
+        sentiment,
+        date: new Date(),
+        userId: user?.id
+      });
       return res.json();
     },
     onSuccess: () => {
       toast({
         title: "Entry saved",
-        description: "Your journal entry has been saved successfully.",
+        description: "Your journal entry has been saved successfully",
+        className: "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
       });
+      // Reset form
+      setSelectedMood(null);
+      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-      reset();
-      setSentimentAnalysis(null);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
-        title: "Error saving entry",
-        description: error.message || "There was a problem saving your entry.",
+        title: "Failed to save entry",
+        description: error.message || "Could not save your journal entry",
         variant: "destructive",
       });
     },
   });
-  
-  // Form setup
-  const { register, handleSubmit, watch, reset, setValue, formState: { errors, isSubmitting } } = useForm<JournalEntry>({
-    resolver: zodResolver(entrySchema),
-    defaultValues: {
-      mood: "Neutral",
-      journalEntry: "",
-    },
-  });
-  
-  // Watch journal entry for sentiment analysis
-  const journalEntry = watch("journalEntry");
-  const mood = watch("mood");
-  
-  // Debounced sentiment analysis
-  const analyzeSentiment = async (text: string) => {
-    if (text.length < 10) return;
-    
-    try {
-      setSentimentLoading(true);
-      const res = await apiRequest("GET", `/api/analyze-sentiment?text=${encodeURIComponent(text)}`);
-      const data = await res.json();
-      setSentimentAnalysis(data.sentiment);
-    } catch (error) {
-      console.error("Error analyzing sentiment:", error);
-    } finally {
-      setSentimentLoading(false);
+
+  // Show writing interface automatically if no entries exist
+  useEffect(() => {
+    if (entries && entries.length === 0 && !entriesLoading) {
+      setJournalTab("write");
     }
+  }, [entries, entriesLoading]);
+
+  const handleMoodSelect = (mood: MoodType) => {
+    setSelectedMood(mood);
   };
-  
-  // Handle journal entry change with debounce
-  const handleJournalChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue("journalEntry", e.target.value);
-    
-    // Debounce sentiment analysis
-    if (sentimentAnalysisTimeout) {
-      clearTimeout(sentimentAnalysisTimeout);
+
+  const handleSaveEntry = async (journalText: string, sentiment: SentimentType) => {
+    if (!selectedMood) {
+      toast({
+        title: "Mood required",
+        description: "Please select your mood before saving",
+        variant: "destructive",
+      });
+      return;
     }
-    
-    // Only analyze if text is long enough
-    if (e.target.value.length >= 10) {
-      sentimentAnalysisTimeout = setTimeout(() => {
-        analyzeSentiment(e.target.value);
-      }, 800);
-    }
-  };
-  
-  let sentimentAnalysisTimeout: NodeJS.Timeout;
-  
-  // Handle form submission
-  const onSubmit = async (data: JournalEntry) => {
+
     createEntryMutation.mutate({
-      ...data,
-      userId: user!.id,
-      sentiment: sentimentAnalysis || undefined, // Use analyzed sentiment if available
+      mood: selectedMood,
+      journalText,
+      sentiment
     });
   };
-  
-  // Get entries for selected date
-  const entriesForDate = entries?.filter(entry => {
-    const entryDate = new Date(entry.date);
-    return isSameDay(entryDate, selectedDate);
-  }) || [];
-  
-  // Generate calendar days for current month
-  const calendarDays = (() => {
-    const monthStart = startOfMonth(selectedDate);
-    const monthEnd = endOfMonth(selectedDate);
-    return eachDayOfInterval({ start: monthStart, end: monthEnd });
-  })();
-  
-  // Check if a day has entries
-  const dayHasEntries = (day: Date) => {
-    return entries?.some(entry => {
-      const entryDate = new Date(entry.date);
-      return isSameDay(entryDate, day);
-    });
-  };
-  
-  // Update mood description based on selected mood
-  const updateMoodDescription = (mood: string) => {
-    switch(mood) {
-      case "Happy":
-        setMoodDescription("You're feeling positive and content.");
-        break;
-      case "Neutral":
-        setMoodDescription("You're feeling balanced and calm.");
-        break;
-      case "Sad":
-        setMoodDescription("You're feeling down or melancholic.");
-        break;
-      case "Angry":
-        setMoodDescription("You're feeling frustrated or irritated.");
-        break;
-      case "Tired":
-        setMoodDescription("You're feeling low energy or fatigued.");
-        break;
-      default:
-        setMoodDescription("");
+
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Group entries by date
+  const entriesByDate = entries.reduce((groups, entry) => {
+    const date = format(new Date(entry.date), 'yyyy-MM-dd');
+    if (!groups[date]) {
+      groups[date] = [];
     }
-  };
-  
-  // Get color for mood
-  const getMoodColor = (mood: string) => {
-    switch(mood) {
-      case "Happy": return "#4ade80";
-      case "Neutral": return "#94a3b8";
-      case "Sad": return "#60a5fa";
-      case "Angry": return "#f87171";
-      case "Tired": return "#c084fc";
-      default: return "#94a3b8";
-    }
-  };
-  
-  // Get emoji for mood
-  const getMoodEmoji = (mood: string) => {
-    switch(mood) {
-      case "Happy": return "😊";
-      case "Neutral": return "😐";
-      case "Sad": return "😢";
-      case "Angry": return "😠";
-      case "Tired": return "😴";
-      default: return "";
-    }
-  };
-  
-  // Get activities based on mood
-  const getMoodActivities = (mood: string) => {
-    if (Object.prototype.hasOwnProperty.call(activitiesMapping, mood)) {
-      return activitiesMapping[mood as keyof typeof activitiesMapping];
-    }
-    return [];
-  };
-  
+    groups[date].push(entry);
+    return groups;
+  }, {} as Record<string, Entry[]>);
+
+  // Sort entries by date (newest first)
+  const sortedDates = Object.keys(entriesByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
   return (
-    <Layout>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Journal</h1>
-            <p className="text-muted-foreground">Record your thoughts and track your mood</p>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex flex-wrap items-center justify-between mb-6">
+          <div className="flex items-center mb-2 md:mb-0">
+            <Button 
+              variant="ghost" 
+              className="mr-2 p-2" 
+              onClick={() => setLocation("/")}
+            >
+              <ArrowLeft size={20} />
+            </Button>
+            <h1 className="text-3xl font-bold gradient-heading">Journal</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              {format(selectedDate, "MMMM yyyy")}
+          
+          <div className="w-auto">
+            <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+              <button 
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-1 ${journalTab === "write" ? "bg-background text-foreground shadow-sm" : ""}`}
+                onClick={() => setJournalTab("write")}
+              >
+                <PenLine size={16} />
+                <span>Write</span>
+              </button>
+              <button 
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-1 ${journalTab === "history" ? "bg-background text-foreground shadow-sm" : ""}`}
+                onClick={() => setJournalTab("history")}
+              >
+                <History size={16} />
+                <span>History</span>
+              </button>
             </div>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-7 lg:grid-cols-3 gap-6">
-          {/* Calendar (shown on larger screens) */}
-          <Card className="md:col-span-3 lg:col-span-1 order-2 md:order-1">
-            <CardHeader>
-              <CardTitle>Calendar</CardTitle>
-              <CardDescription>Select a date to view or add entries</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-                  <div key={day} className="text-xs font-medium text-muted-foreground">
-                    {day}
+        {journalTab === "write" ? (
+          <div className="mt-4 space-y-6">
+            {/* Mood Tracker */}
+            <Card className="hover-card gradient-card">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl">How are you feeling today?</CardTitle>
+                    <CardDescription>Select your current mood to help track patterns over time</CardDescription>
                   </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day) => {
-                  const isSelected = isSameDay(day, selectedDate);
-                  const hasEntries = dayHasEntries(day);
-                  
-                  return (
-                    <button
-                      key={day.toISOString()}
-                      className={`h-10 w-full rounded-md flex items-center justify-center text-sm transition-colors ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : hasEntries
-                          ? "bg-primary/10 hover:bg-primary/20"
-                          : "hover:bg-muted"
-                      }`}
-                      onClick={() => setSelectedDate(day)}
-                    >
-                      {format(day, "d")}
-                    </button>
-                  );
-                })}
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setSelectedDate(new Date())}
-              >
-                Today
-              </Button>
-            </CardFooter>
-          </Card>
-
-          {/* Journal Form */}
-          <Card className="md:col-span-4 lg:col-span-2 order-1 md:order-2">
-            <CardHeader>
-              <CardTitle>New Entry</CardTitle>
-              <CardDescription>
-                {format(selectedDate, "EEEE, MMMM d, yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form 
-                id="journalForm" 
-                onSubmit={handleSubmit(onSubmit)} 
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="mood">How are you feeling today?</Label>
-                  <Select
-                    defaultValue="Neutral"
-                    onValueChange={(value) => {
-                      setValue("mood", value as any);
-                      updateMoodDescription(value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your mood" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Happy">😊 Happy</SelectItem>
-                      <SelectItem value="Neutral">😐 Neutral</SelectItem>
-                      <SelectItem value="Sad">😢 Sad</SelectItem>
-                      <SelectItem value="Angry">😠 Angry</SelectItem>
-                      <SelectItem value="Tired">😴 Tired</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {moodDescription && (
-                    <p className="text-sm text-muted-foreground">{moodDescription}</p>
-                  )}
-                  {errors.mood?.message && (
-                    <p className="text-sm text-destructive">{errors.mood.message}</p>
-                  )}
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white">
+                    <span className="text-sm">🌈</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <MoodTracker 
+                  selectedMood={selectedMood} 
+                  onMoodSelect={handleMoodSelect} 
+                />
+              </CardContent>
+            </Card>
+            
+            {/* Journal Entry */}
+            <div>
+              <JournalEntry 
+                mood={selectedMood} 
+                onSave={handleSaveEntry}
+                isSubmitting={createEntryMutation.isPending}
+              />
+            </div>
+            
+            {/* Quick Tips */}
+            <Card className="bg-muted/50 border-dashed border-muted">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Journal Tips</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Write freely without judgment</li>
+                  <li>Try to journal at the same time each day</li>
+                  <li>Include both challenges and positive moments</li>
+                  <li>Use writing prompts when you're not sure what to write about</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <Card className="mt-4">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Journal History</CardTitle>
+                  <CardDescription>Review your past entries and reflections</CardDescription>
                 </div>
                 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="journalEntry">Write your thoughts</Label>
-                    {sentimentLoading ? (
-                      <span className="text-sm text-muted-foreground flex items-center">
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Analyzing...
-                      </span>
-                    ) : sentimentAnalysis ? (
-                      <span className={`text-sm font-medium ${
-                        sentimentAnalysis === "Positive" 
-                          ? "text-green-600" 
-                          : sentimentAnalysis === "Negative"
-                          ? "text-red-600"
-                          : "text-blue-600"
-                      }`}>
-                        {sentimentAnalysis} sentiment
-                      </span>
-                    ) : null}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setJournalTab("write")}
+                  className="hidden sm:flex items-center gap-1"
+                >
+                  <PenLine size={16} />
+                  <span>New Entry</span>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {entriesLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="loading-pulse text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Loading your journal entries...</p>
                   </div>
-                  <Textarea
-                    id="journalEntry"
-                    placeholder="What's on your mind today?"
-                    rows={8}
-                    {...register("journalEntry")}
-                    onChange={handleJournalChange}
-                  />
-                  {errors.journalEntry?.message && (
-                    <p className="text-sm text-destructive">{errors.journalEntry.message}</p>
-                  )}
                 </div>
-              </form>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  reset();
-                  setSentimentAnalysis(null);
-                }}
-              >
-                Clear
-              </Button>
-              <Button 
-                type="submit" 
-                form="journalForm"
-                disabled={createEntryMutation.isPending}
-              >
-                {createEntryMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Entry"
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-        
-        {/* Previous Entries for Selected Date */}
-        <div>
-          <h2 className="text-xl font-bold mb-4">
-            Entries for {format(selectedDate, "MMMM d, yyyy")}
-          </h2>
-          
-          {entriesLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          ) : entriesForDate.length > 0 ? (
-            <div className="space-y-4">
-              {entriesForDate.map((entry) => (
-                <Card key={entry.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
-                          style={{ backgroundColor: `${getMoodColor(entry.mood)}30`, color: getMoodColor(entry.mood) }}
-                        >
-                          {getMoodEmoji(entry.mood)}
+              ) : entries.length === 0 ? (
+                <div className="text-center py-12 border border-dashed rounded-lg">
+                  <div className="max-w-md mx-auto">
+                    <h3 className="text-lg font-medium mb-2">No journal entries yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start journaling to track your moods and thoughts over time.
+                    </p>
+                    <Button onClick={() => setJournalTab("write")} className="animate-button">
+                      Create Your First Entry
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <ScrollArea className="h-[500px] pr-4">
+                  <div className="space-y-8">
+                    {sortedDates.map(dateStr => (
+                      <div key={dateStr} className="pb-4">
+                        <div className="sticky top-0 bg-background/80 backdrop-blur-sm py-2 z-10 mb-3 flex items-center">
+                          <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <time dateTime={dateStr} className="text-sm font-medium">
+                            {format(new Date(dateStr), 'EEEE, MMMM d, yyyy')}
+                          </time>
                         </div>
-                        <div>
-                          <CardTitle>{entry.mood}</CardTitle>
-                          <CardDescription>
-                            {format(new Date(entry.date), "h:mm a")}
-                          </CardDescription>
+                        
+                        <div className="space-y-4">
+                          {entriesByDate[dateStr].map(entry => (
+                            <Card key={entry.id} className="hover-card overflow-hidden">
+                              <CardHeader className="pb-2 bg-muted/30">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="p-1 rounded-full" title={entry.mood}>
+                                      <span className="text-xl">{getMoodEmoji(entry.mood)}</span>
+                                    </div>
+                                    <div>
+                                      <div className="font-medium">{entry.mood}</div>
+                                      <div className="flex items-center text-xs text-muted-foreground">
+                                        <Clock className="mr-1 h-3 w-3" />
+                                        <time dateTime={entry.date.toString()}>
+                                          {format(new Date(entry.date), 'h:mm a')}
+                                        </time>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2">
+                                    <div className="bg-muted px-2 py-0.5 rounded-full text-xs flex items-center gap-1" title="Sentiment">
+                                      <span className="text-xs">{getSentimentIcon(entry.sentiment || "Neutral")}</span>
+                                      <span>{entry.sentiment || "Neutral"}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="pt-4 pb-3">
+                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                  <p className="whitespace-pre-line">{entry.journalEntry}</p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
                       </div>
-                      {entry.sentiment && (
-                        <div 
-                          className="px-3 py-1 rounded-full text-xs font-medium"
-                          style={{ 
-                            backgroundColor: `${
-                              entry.sentiment === "Positive" 
-                                ? "#4ade8030" 
-                                : entry.sentiment === "Negative"
-                                ? "#f8717130"
-                                : "#94a3b830"
-                            }`,
-                            color: entry.sentiment === "Positive" 
-                              ? "#16a34a" 
-                              : entry.sentiment === "Negative"
-                              ? "#dc2626"
-                              : "#64748b"
-                          }}
-                        >
-                          {entry.sentiment}
-                        </div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap">{entry.journalEntry}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <div className="w-full">
-                      <h4 className="font-medium text-sm mb-2">Recommended Activities:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {getMoodActivities(entry.mood).map((activity, index) => (
-                          <div 
-                            key={index}
-                            className="px-3 py-1 bg-secondary text-secondary-foreground text-xs rounded-full"
-                          >
-                            {activity}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>No Entries Yet</CardTitle>
-                <CardDescription>
-                  You don't have any journal entries for this date.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-        </div>
-      </div>
-      
-      {/* Entry Detail Dialog */}
-      <AlertDialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
-        <AlertDialogContent className="max-w-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              <div className="flex items-center space-x-2">
-                {selectedEntry && (
-                  <>
-                    <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                      style={{ backgroundColor: `${getMoodColor(selectedEntry.mood)}30`, color: getMoodColor(selectedEntry.mood) }}
-                    >
-                      {getMoodEmoji(selectedEntry.mood)}
-                    </div>
-                    <span>{selectedEntry.mood}</span>
-                  </>
-                )}
-              </div>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedEntry && format(new Date(selectedEntry.date), "EEEE, MMMM d, yyyy 'at' h:mm a")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          {selectedEntry && (
-            <div className="py-4">
-              <p className="whitespace-pre-wrap mb-6">{selectedEntry.journalEntry}</p>
-              
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Recommended Activities:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {getMoodActivities(selectedEntry.mood).map((activity, index) => (
-                    <div 
-                      key={index}
-                      className="px-3 py-1 bg-secondary text-secondary-foreground rounded-full"
-                    >
-                      {activity}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {selectedEntry.sentiment && (
-                <div className="mt-4 flex items-center">
-                  <span className="text-sm text-muted-foreground mr-2">Sentiment Analysis:</span>
-                  <span 
-                    className="px-3 py-1 rounded-full text-xs font-medium"
-                    style={{ 
-                      backgroundColor: `${
-                        selectedEntry.sentiment === "Positive" 
-                          ? "#4ade8030" 
-                          : selectedEntry.sentiment === "Negative"
-                          ? "#f8717130"
-                          : "#94a3b830"
-                      }`,
-                      color: selectedEntry.sentiment === "Positive" 
-                        ? "#16a34a" 
-                        : selectedEntry.sentiment === "Negative"
-                        ? "#dc2626"
-                        : "#64748b"
-                    }}
-                  >
-                    {selectedEntry.sentiment}
-                  </span>
-                </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
-            </div>
-          )}
-          
-          <AlertDialogFooter>
-            <AlertDialogCancel>Close</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Layout>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import Layout from "@/components/Layout";
 
 // Pages
 import Dashboard from "@/pages/Dashboard";
@@ -22,10 +23,37 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       
       {/* Protected routes */}
-      <ProtectedRoute path="/" component={Dashboard} />
-      <ProtectedRoute path="/journal" component={JournalPage} />
-      <ProtectedRoute path="/subscription" component={SubscriptionPage} />
-      <ProtectedRoute path="/games" component={GamesPage} />
+      <Route path="/">
+        <ProtectedRoute>
+          <Layout>
+            <Dashboard />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/journal">
+        <ProtectedRoute>
+          <Layout>
+            <JournalPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/subscription">
+        <ProtectedRoute>
+          <Layout>
+            <SubscriptionPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/games">
+        <ProtectedRoute>
+          <Layout>
+            <GamesPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
       
       {/* 404 route */}
       <Route component={NotFound} />

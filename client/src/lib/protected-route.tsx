@@ -1,27 +1,45 @@
-import { useAuth } from "@/hooks/use-auth";
+import { ReactNode, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
-import { Redirect, Route } from "wouter";
+import { apiRequest } from "./queryClient";
 
-export function ProtectedRoute({
-  path,
-  component: Component,
-}: {
-  path: string;
-  component: () => React.JSX.Element;
-}) {
-  const { user, isLoading } = useAuth();
+interface ProtectedRouteProps {
+  children: ReactNode;
+}
 
-  return (
-    <Route path={path}>
-      {isLoading ? (
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : !user ? (
-        <Redirect to="/auth" />
-      ) : (
-        <Component />
-      )}
-    </Route>
-  );
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/user");
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else {
+          // Not authenticated, redirect to login
+          setLocation("/auth");
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        setLocation("/auth");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [setLocation]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <>{children}</> : null;
 }
