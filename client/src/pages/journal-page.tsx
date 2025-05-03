@@ -46,6 +46,7 @@ import {
   PanelBottom,
   Trash2,
   SunMoon,
+  BookOpen,
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import {

@@ -184,23 +184,123 @@ export const getTrialEndDate = (userId: number): Date | null => {
   return new Date(user.trialEndDate);
 };
 
-// Helper function - simple sentiment analysis
+// Helper function - enhanced sentiment analysis
 export const analyzeSentiment = (text: string): SentimentType => {
-  // Simple keyword-based sentiment analysis
-  const positiveWords = ['happy', 'great', 'good', 'excellent', 'wonderful', 'love', 'enjoy', 'positive', 'awesome', 'amazing'];
-  const negativeWords = ['sad', 'bad', 'terrible', 'awful', 'hate', 'upset', 'disappointed', 'negative', 'anxious', 'stress', 'worried'];
+  // Enhanced keyword-based sentiment analysis with weighted scoring
+  const positiveWords = [
+    { word: 'happy', weight: 2 },
+    { word: 'great', weight: 2 },
+    { word: 'good', weight: 1 },
+    { word: 'excellent', weight: 3 },
+    { word: 'wonderful', weight: 3 },
+    { word: 'love', weight: 2 },
+    { word: 'enjoy', weight: 1 },
+    { word: 'positive', weight: 1 },
+    { word: 'awesome', weight: 2 },
+    { word: 'amazing', weight: 2 },
+    { word: 'grateful', weight: 2 },
+    { word: 'thankful', weight: 2 },
+    { word: 'exciting', weight: 2 },
+    { word: 'pleased', weight: 1 },
+    { word: 'joy', weight: 2 },
+    { word: 'proud', weight: 2 },
+    { word: 'blessed', weight: 2 },
+    { word: 'fun', weight: 1 },
+    { word: 'peaceful', weight: 2 },
+    { word: 'calm', weight: 1 }
+  ];
+  
+  const negativeWords = [
+    { word: 'sad', weight: 2 },
+    { word: 'bad', weight: 1 },
+    { word: 'terrible', weight: 3 },
+    { word: 'awful', weight: 3 },
+    { word: 'hate', weight: 3 },
+    { word: 'upset', weight: 2 },
+    { word: 'disappointed', weight: 2 },
+    { word: 'negative', weight: 1 },
+    { word: 'anxious', weight: 2 },
+    { word: 'stress', weight: 2 },
+    { word: 'worried', weight: 2 },
+    { word: 'frustrated', weight: 2 },
+    { word: 'angry', weight: 2 },
+    { word: 'depressed', weight: 3 },
+    { word: 'annoyed', weight: 1 },
+    { word: 'lonely', weight: 2 },
+    { word: 'afraid', weight: 2 },
+    { word: 'miserable', weight: 3 },
+    { word: 'exhausted', weight: 1 },
+    { word: 'tired', weight: 1 }
+  ];
+  
+  // Check for negation words
+  const negationWords = ['not', 'no', 'never', "don't", "doesn't", "didn't", "can't", "won't", "isn't"];
   
   const words = text.toLowerCase().split(/\s+/);
-  let positiveCount = 0;
-  let negativeCount = 0;
+  let positiveScore = 0;
+  let negativeScore = 0;
   
-  for (const word of words) {
-    if (positiveWords.includes(word)) positiveCount++;
-    if (negativeWords.includes(word)) negativeCount++;
+  // Process more complex sentiment patterns
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i].replace(/[.,!?;:]/g, ''); // Remove punctuation
+    let isNegated = false;
+    
+    // Check if the word is negated by looking at previous words
+    if (i > 0) {
+      for (let j = Math.max(0, i - 3); j < i; j++) {
+        if (negationWords.includes(words[j].replace(/[.,!?;:]/g, ''))) {
+          isNegated = true;
+          break;
+        }
+      }
+    }
+    
+    // Check for positive words and apply negation if needed
+    const positiveMatch = positiveWords.find(pw => pw.word === word);
+    if (positiveMatch) {
+      if (isNegated) {
+        negativeScore += positiveMatch.weight;
+      } else {
+        positiveScore += positiveMatch.weight;
+      }
+    }
+    
+    // Check for negative words and apply negation if needed
+    const negativeMatch = negativeWords.find(nw => nw.word === word);
+    if (negativeMatch) {
+      if (isNegated) {
+        positiveScore += negativeMatch.weight * 0.5; // Negated negative is slightly positive
+      } else {
+        negativeScore += negativeMatch.weight;
+      }
+    }
   }
   
-  if (positiveCount > negativeCount) return "Positive";
-  if (negativeCount > positiveCount) return "Negative";
+  // Check for phrases that indicate stronger sentiment
+  const lowerText = text.toLowerCase();
+  const veryPositivePhrases = ['really happy', 'very good', 'so excited', 'love it', 'very grateful'];
+  const veryNegativePhrases = ['really sad', 'very bad', 'so angry', 'hate it', 'very anxious'];
+  
+  veryPositivePhrases.forEach(phrase => {
+    if (lowerText.includes(phrase)) {
+      positiveScore += 3;
+    }
+  });
+  
+  veryNegativePhrases.forEach(phrase => {
+    if (lowerText.includes(phrase)) {
+      negativeScore += 3;
+    }
+  });
+  
+  // Calculate sentiment score with a bias towards neutral for short texts
+  const textLength = words.length;
+  const sentimentThreshold = Math.min(3, Math.max(1, Math.floor(textLength / 20)));
+  
+  const scoreDifference = positiveScore - negativeScore;
+  
+  if (scoreDifference > sentimentThreshold) return "Positive";
+  if (scoreDifference < -sentimentThreshold) return "Negative";
   return "Neutral";
 };
 
