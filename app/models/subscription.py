@@ -4,7 +4,7 @@ This model represents user subscriptions for premium features
 """
 from datetime import datetime
 
-from app import db
+from run import db
 
 class Subscription(db.Model):
     __tablename__ = 'subscriptions'
