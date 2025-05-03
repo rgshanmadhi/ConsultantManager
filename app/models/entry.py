@@ -4,7 +4,7 @@ This model represents journal entries created by users
 """
 from datetime import datetime
 
-from run import db
+from app import db
 
 class Entry(db.Model):
     __tablename__ = 'entries'
