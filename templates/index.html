@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Serene - Mental Health Tracker{% endblock %}
+
+{% block content %}
+<section class="mt-5">
+    <div class="d-flex flex-column justify-content-center" style="min-height: 80vh;">
+        <div class="text-center">
+            <h1 style="font-size: 3rem; font-weight: 700; margin-bottom: 1.5rem;">Serene</h1>
+            <h2 style="font-size: 2rem; color: var(--primary-color); margin-bottom: 2rem;">Your Mental Wellness Companion</h2>
+            <p style="font-size: 1.25rem; max-width: 800px; margin: 0 auto 3rem;">
+                Track your moods, journal your thoughts, and engage in wellness activities designed to help you understand and improve your mental well-being.
+            </p>
+            <div>
+                <a href="{{ url_for('login') }}" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1.1rem; margin-right: 1rem;">Sign In</a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline" style="padding: 0.75rem 2rem; font-size: 1.1rem;">Create Account</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="mt-5">
+    <div class="card">
+        <div class="card-body">
+            <h2 class="text-center mb-4">How Serene Works</h2>
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calendar-heart" style="font-size: 3rem; color: var(--primary-color);"></i>
+                        <h3 class="mt-3">Track Your Mood</h3>
+                        <p>Log your daily emotions and track how they change over time. Identify patterns and triggers.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-journal-text" style="font-size: 3rem; color: var(--primary-color);"></i>
+                        <h3 class="mt-3">Journal Your Thoughts</h3>
+                        <p>Express yourself freely with our sentiment analysis to understand the emotional tone of your entries.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-activity" style="font-size: 3rem; color: var(--primary-color);"></i>
+                        <h3 class="mt-3">Wellness Activities</h3>
+                        <p>Engage in guided breathing exercises, meditation, and other activities to reduce stress and anxiety.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-graph-up" style="font-size: 3rem; color: var(--primary-color);"></i>
+                        <h3 class="mt-3">Insights & Analytics</h3>
+                        <p>Gain valuable insights into your mental health journey with personalized analytics and reports.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="mt-5">
+    <div class="card">
+        <div class="card-body">
+            <h2 class="text-center mb-4">Why Choose Serene?</h2>
+            <div class="dashboard-grid">
+                <div>
+                    <h4><i class="bi bi-shield-check"></i> Private & Secure</h4>
+                    <p>Your data is encrypted and never shared with third parties. Your mental health journey is yours alone.</p>
+                </div>
+                
+                <div>
+                    <h4><i class="bi bi-lightbulb"></i> Science-Based</h4>
+                    <p>Our approach is grounded in established psychological practices and evidence-based techniques.</p>
+                </div>
+                
+                <div>
+                    <h4><i class="bi bi-person-heart"></i> User-Centered</h4>
+                    <p>Designed with real user needs in mind, with a focus on simplicity and effectiveness.</p>
+                </div>
+                
+                <div>
+                    <h4><i class="bi bi-stars"></i> Continuous Growth</h4>
+                    <p>Regular updates with new features and activities to support your evolving wellness journey.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="mt-5 mb-5">
+    <div class="text-center">
+        <h2 class="mb-4">Ready to Start Your Journey?</h2>
+        <p class="mb-4">Join thousands of others improving their mental well-being with Serene.</p>
+        <a href="{{ url_for('register') }}" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1.1rem;">Create Free Account</a>
+        <p class="mt-3">No credit card required. 30-day free trial.</p>
+    </div>
+</section>
+{% endblock %}

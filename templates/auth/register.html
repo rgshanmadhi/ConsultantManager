@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Serene{% endblock %}
+
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-form-container">
+        <div class="text-center mb-5">
+            <h1>Create Account</h1>
+            <p>Join Serene and start your mental wellness journey</p>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('register') }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="form-group">
+                        {{ form.username.label(class="form-label") }}
+                        {{ form.username(class="form-control") }}
+                        {% if form.username.errors %}
+                            {% for error in form.username.errors %}
+                                <div class="form-error">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.email.label(class="form-label") }}
+                        {{ form.email(class="form-control") }}
+                        {% if form.email.errors %}
+                            {% for error in form.email.errors %}
+                                <div class="form-error">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control") }}
+                        {% if form.name.errors %}
+                            {% for error in form.name.errors %}
+                                <div class="form-error">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.password.label(class="form-label") }}
+                        <div class="d-flex">
+                            {{ form.password(class="form-control", id="passwordField") }}
+                            <button type="button" class="password-toggle" data-target="passwordField">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                            {% for error in form.password.errors %}
+                                <div class="form-error">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.confirm_password.label(class="form-label") }}
+                        <div class="d-flex">
+                            {{ form.confirm_password(class="form-control", id="confirmPasswordField") }}
+                            <button type="button" class="password-toggle" data-target="confirmPasswordField">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.confirm_password.errors %}
+                            {% for error in form.confirm_password.errors %}
+                                <div class="form-error">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <div>
+                            {{ form.accept_tos(class="form-check-input") }}
+                            {{ form.accept_tos.label(class="form-check-label") }}
+                        </div>
+                        {% if form.accept_tos.errors %}
+                            {% for error in form.accept_tos.errors %}
+                                <div class="form-error">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.submit(class="btn btn-primary w-100") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p>Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+        </div>
+    </div>
+    
+    <div class="auth-hero">
+        <h1>Serene</h1>
+        <p>Your personal mental health companion. Track your mood, journal your thoughts, and engage in activities designed to improve your well-being.</p>
+        
+        <div class="mt-4">
+            <h3>Your free trial includes:</h3>
+            <ul>
+                <li>30 days of full access</li>
+                <li>Unlimited journal entries</li> 
+                <li>Access to all wellness activities</li>
+                <li>Mood tracking and insights</li>
+                <li>No credit card required</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
