@@ -1,293 +1,181 @@
-import React, { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
-import { 
-  Home, 
-  BookOpen, 
-  Calendar, 
-  LineChart, 
-  LogOut, 
-  Menu, 
-  X, 
-  Moon, 
-  Sun, 
-  User, 
-  CreditCard,
-  Gamepad2
+import {
+  BarChart3Icon,
+  BookIcon,
+  HomeIcon,
+  LogOutIcon, 
+  UserIcon,
+  CreditCardIcon,
+  HeartPulseIcon,
+  MenuIcon,
+  XIcon
 } from "lucide-react";
-import { useTheme } from "@/lib/theme-provider";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, logoutMutation } = useAuth();
   const [location] = useLocation();
-  const { theme, setTheme } = useTheme();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, logoutMutation } = useAuth();
+  const [open, setOpen] = useState(false);
 
-  const navItems = [
-    { name: "Dashboard", path: "/", icon: <Home className="h-5 w-5" /> },
-    { name: "Journal", path: "/journal", icon: <BookOpen className="h-5 w-5" /> },
-    { name: "Games", path: "/games", icon: <Gamepad2 className="h-5 w-5" /> },
-    { name: "Calendar", path: "/calendar", icon: <Calendar className="h-5 w-5" /> },
-    { name: "Analytics", path: "/analytics", icon: <LineChart className="h-5 w-5" /> },
+  const navigation = [
+    { name: "Dashboard", href: "/", icon: HomeIcon },
+    { name: "Journal", href: "/journal", icon: BookIcon },
+    { name: "Activities", href: "/games", icon: HeartPulseIcon },
+    { name: "Insights", href: "/insights", icon: BarChart3Icon },
+    { name: "Subscription", href: "/subscription", icon: CreditCardIcon },
+    { name: "Profile", href: "/profile", icon: UserIcon },
   ];
 
-  // Get initials for avatar
-  const getInitials = () => {
-    if (user?.name) {
-      return user.name.split(' ').map(n => n[0]).join('').toUpperCase();
-    }
-    return user?.username.substring(0, 2).toUpperCase() || "U";
-  };
-
-  const handleLogout = () => {
+  function handleLogout() {
     logoutMutation.mutate();
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  if (!user) {
-    return <>{children}</>;
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Desktop Navigation */}
-      <header className="bg-white dark:bg-gray-900 border-b shadow-sm h-16 hidden md:flex items-center justify-between px-6">
-        <div className="flex items-center space-x-2">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
+      {/* Mobile Nav */}
+      <header className="bg-background sticky top-0 z-30 border-b flex lg:hidden items-center h-14 px-4">
+        <div className="flex items-center justify-between w-full">
+          <Link href="/" className="font-bold text-xl text-primary">
             Serene
-          </h1>
-        </div>
-        
-        <nav className="flex-1 flex justify-center">
-          <ul className="flex space-x-1">
-            {navItems.map((item) => (
-              <li key={item.path}>
-                <Link href={item.path}>
-                  <Button
-                    variant={location === item.path ? "default" : "ghost"}
-                    className="flex items-center space-x-2"
+          </Link>
+          
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MenuIcon className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[300px] sm:w-[400px]">
+              <nav className="flex flex-col gap-6 mt-8">
+                <Link 
+                  href="/" 
+                  className="font-bold text-xl flex items-center"
+                  onClick={() => setOpen(false)}
+                >
+                  <span className="text-primary">Serene</span>
+                </Link>
+                
+                <div className="space-y-1">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                    >
+                      <Button 
+                        variant={item.href === location ? "secondary" : "ghost"}
+                        className="w-full justify-start"
+                      >
+                        <item.icon className="h-5 w-5 mr-3" />
+                        {item.name}
+                      </Button>
+                    </Link>
+                  ))}
+                </div>
+                
+                <div className="pt-2 mt-auto">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-destructive"
+                    onClick={() => {
+                      handleLogout();
+                      setOpen(false);
+                    }}
                   >
-                    {item.icon}
-                    <span>{item.name}</span>
+                    <LogOutIcon className="h-5 w-5 mr-3" />
+                    Log out
                   </Button>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Toggle theme"
-            onClick={toggleTheme}
-          >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </Button>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <div className="flex items-center justify-start gap-2 p-2">
-                <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">{user.name || user.username}</p>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
                 </div>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/profile">
-                  <div className="flex items-center gap-2 w-full">
-                    <User className="h-4 w-4" />
-                    <span>Profile</span>
-                  </div>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/subscription">
-                  <div className="flex items-center gap-2 w-full">
-                    <CreditCard className="h-4 w-4" />
-                    <span>Subscription</span>
-                  </div>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={handleLogout} 
-                disabled={logoutMutation.isPending}
-                className="text-red-500 focus:text-red-500"
-              >
-                <div className="flex items-center gap-2 w-full">
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
-      
-      {/* Mobile Navigation */}
-      <header className="bg-white dark:bg-gray-900 border-b shadow-sm h-16 flex md:hidden items-center justify-between px-4">
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            aria-label="Menu"
-            onClick={toggleMobileMenu}
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
-          <h1 className="text-xl font-bold ml-2 bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
-            Serene
-          </h1>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Toggle theme"
-            onClick={toggleTheme}
-          >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </Button>
-          
-          <Avatar className="h-8 w-8">
-            <AvatarFallback>{getInitials()}</AvatarFallback>
-          </Avatar>
-        </div>
-      </header>
-      
-      {/* Mobile Menu Drawer */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden">
-          <div className="bg-white dark:bg-gray-900 h-full w-64 flex flex-col">
-            <div className="flex items-center justify-between h-16 px-4 border-b">
-              <h2 className="font-bold text-lg">Menu</h2>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                aria-label="Close menu"
-                onClick={toggleMobileMenu}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
+
+      {/* Desktop Nav */}
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden lg:flex border-r w-64 flex-col fixed z-20 inset-y-0">
+          <div className="flex-1 flex flex-col min-h-0 p-4">
+            <Link 
+              href="/" 
+              className="font-bold text-xl flex items-center h-10 mb-8"
+            >
+              <span className="text-primary">Serene</span>
+            </Link>
             
-            <div className="flex flex-col p-4 space-y-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{user.name || user.username}</p>
-                  <p className="text-sm text-muted-foreground truncate max-w-[180px]">
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-              
-              <Separator className="my-2" />
-              
-              {navItems.map((item) => (
-                <Link key={item.path} href={item.path}>
-                  <Button
-                    variant={location === item.path ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={toggleMobileMenu}
+            <nav className="flex-1 space-y-1.5">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                >
+                  <div
+                    className={cn(
+                      "flex items-center rounded-md px-3 py-2 text-sm font-medium",
+                      item.href === location
+                        ? "bg-secondary text-secondary-foreground"
+                        : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                    )}
                   >
-                    <div className="flex items-center space-x-3">
-                      {item.icon}
-                      <span>{item.name}</span>
-                    </div>
-                  </Button>
+                    <item.icon className="h-5 w-5 mr-3" />
+                    {item.name}
+                  </div>
                 </Link>
               ))}
-              
-              <Separator className="my-2" />
-              
-              <Link href="/profile">
-                <Button variant="ghost" className="w-full justify-start">
-                  <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5" />
-                    <span>Profile</span>
+            </nav>
+            
+            <div className="pt-2 mt-auto border-t">
+              <div className="px-3 py-2 mt-2">
+                <div className="flex items-center mb-3">
+                  <div className="rounded-full bg-secondary h-10 w-10 flex items-center justify-center">
+                    <span className="font-medium text-secondary-foreground">
+                      {user?.username?.charAt(0).toUpperCase() || 'U'}
+                    </span>
                   </div>
-                </Button>
-              </Link>
-              
-              <Link href="/subscription">
-                <Button variant="ghost" className="w-full justify-start">
-                  <div className="flex items-center space-x-3">
-                    <CreditCard className="h-5 w-5" />
-                    <span>Subscription</span>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium">{user?.name || user?.username}</p>
+                    {user?.isSubscribed ? (
+                      <span className="text-xs text-green-600 font-medium">Active subscription</span>
+                    ) : user?.isInTrial ? (
+                      <span className="text-xs text-amber-600 font-medium">Trial mode</span>
+                    ) : (
+                      <span className="text-xs text-red-600 font-medium">Trial expired</span>
+                    )}
                   </div>
-                </Button>
-              </Link>
-              
-              <Separator className="my-2" />
-              
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-red-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                onClick={handleLogout}
-                disabled={logoutMutation.isPending}
-              >
-                <div className="flex items-center space-x-3">
-                  <LogOut className="h-5 w-5" />
-                  <span>Logout</span>
                 </div>
-              </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start text-destructive"
+                  onClick={handleLogout}
+                >
+                  <LogOutIcon className="h-5 w-5 mr-3" />
+                  Log out
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      
-      {/* Main Content */}
-      <main className="flex-1 bg-gray-50 dark:bg-gray-950">
-        {children}
-      </main>
-      
-      {/* Footer */}
-      <footer className="bg-white dark:bg-gray-900 border-t py-4 px-6 text-center text-sm text-gray-500 dark:text-gray-400">
-        <p>© {new Date().getFullYear()} Serene. All rights reserved.</p>
-      </footer>
+        </aside>
+        
+        <main className="flex-1 lg:pl-64 overflow-y-auto">
+          <div className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
