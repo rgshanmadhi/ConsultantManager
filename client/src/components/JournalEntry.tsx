@@ -241,21 +241,9 @@ export default function JournalEntry({ mood, onSave, isSubmitting }: JournalEntr
               )}
               
               <div 
-                className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${
-                  sentiment === "Positive" 
-                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" 
-                    : sentiment === "Negative" 
-                    ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" 
-                    : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                }`}
+                className="px-2 py-1 rounded text-xs flex items-center gap-1 bg-gray-100 dark:bg-gray-800"
               >
-                <Heart size={14} className={
-                  sentiment === "Positive" 
-                    ? "text-blue-500 dark:text-blue-400" 
-                    : sentiment === "Negative" 
-                    ? "text-red-500 dark:text-red-400" 
-                    : "text-gray-500 dark:text-gray-400"
-                } />
+                <Heart size={14} className={sentiment === "Positive" ? "text-pink-500" : sentiment === "Negative" ? "text-red-500" : "text-gray-500"} />
                 {isAnalyzing ? (
                   <span className="flex items-center">
                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />

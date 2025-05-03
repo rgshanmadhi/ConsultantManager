@@ -1,31 +1,50 @@
-import { QueryClient } from "@tanstack/react-query";
-import * as localStorageService from "./localStorageService";
+import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// This file has been simplified since we're using local storage for data
-// instead of making API calls
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    const text = (await res.text()) || res.statusText;
+    throw new Error(`${res.status}: ${text}`);
+  }
+}
 
-// Mock API request function for compatibility with existing code
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<{ json: () => any }> {
-  // Simulate network delay for a more realistic feel
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // Mock response object with json method
-  return {
-    json: () => {
-      // This is just a stub - our actual data operations happen via localStorageService
-      return {};
-    }
-  };
+): Promise<Response> {
+  const res = await fetch(url, {
+    method,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
+
+  await throwIfResNotOk(res);
+  return res;
 }
 
-// Simple queryClient with default configuration
+type UnauthorizedBehavior = "returnNull" | "throw";
+export const getQueryFn: <T>(options: {
+  on401: UnauthorizedBehavior;
+}) => QueryFunction<T> =
+  ({ on401: unauthorizedBehavior }) =>
+  async ({ queryKey }) => {
+    const res = await fetch(queryKey[0] as string, {
+      credentials: "include",
+    });
+
+    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      return null;
+    }
+
+    await throwIfResNotOk(res);
+    return await res.json();
+  };
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,

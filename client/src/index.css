@@ -7,7 +7,7 @@
     --background: 210 40% 98%;
     --foreground: 222 47% 11%;
  
-    --muted: 213 40% 93%;
+    --muted: 210 40% 93%;
     --muted-foreground: 215 25% 40%;
  
     --popover: 0 0% 100%;
@@ -19,52 +19,52 @@
     --border: 214 32% 91%;
     --input: 214 32% 91%;
  
-    --primary: 210 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
  
-    --secondary: 213 50% 96%;
+    --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
  
-    --accent: 210 90% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 250 95% 76%;
+    --accent-foreground: 210 40% 98%;
  
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
  
-    --ring: 210 100% 50%;
+    --ring: 221 83% 53%;
  
     --radius: 0.75rem;
   }
  
   .dark {
-    --background: 214 60% 5%;
+    --background: 222 47% 5%;
     --foreground: 210 40% 98%;
  
-    --muted: 214 40% 15%;
-    --muted-foreground: 215 20% 70%;
+    --muted: 217 32% 17%;
+    --muted-foreground: 215 20% 65%;
  
-    --popover: 214 50% 7%;
+    --popover: 222 47% 7%;
     --popover-foreground: 210 40% 98%;
  
-    --card: 214 50% 7%;
+    --card: 222 47% 7%;
     --card-foreground: 210 40% 98%;
  
-    --border: 214 32% 17%;
-    --input: 214 32% 17%;
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
  
-    --primary: 210 100% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 221 83% 65%;
+    --primary-foreground: 222 47% 11%;
  
-    --secondary: 210 40% 20%;
+    --secondary: 217 32% 17%;
     --secondary-foreground: 210 40% 98%;
  
-    --accent: 210 90% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 250 95% 76%;
+    --accent-foreground: 222 47% 11%;
  
     --destructive: 0 62.8% 40.6%;
     --destructive-foreground: 210 40% 98%;
  
-    --ring: 210 100% 60%;
+    --ring: 217 32% 60%;
   }
 }
  
@@ -80,13 +80,13 @@
 
 /* Custom styles for Serene app */
 .gradient-heading {
-  @apply bg-gradient-to-r from-blue-600 to-blue-500 text-transparent bg-clip-text font-extrabold;
-  text-shadow: 0 10px 20px rgba(0, 120, 255, 0.15);
+  @apply bg-gradient-to-r from-blue-600 to-violet-600 text-transparent bg-clip-text font-extrabold;
+  text-shadow: 0 10px 20px rgba(81, 92, 230, 0.15);
 }
 
 .gradient-card {
   @apply relative overflow-hidden;
-  background: linear-gradient(135deg, rgba(0, 120, 255, 0.05) 0%, rgba(0, 80, 255, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(124, 58, 237, 0.1) 100%);
 }
 
 .gradient-card::before {
@@ -96,7 +96,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #0078ff, #0050ff, #0028ff);
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #d946ef);
   z-index: 10;
   opacity: 0;
   transform: translateY(-3px);
