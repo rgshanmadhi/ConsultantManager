@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import Layout from "@/components/Layout";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { format, addMonths, addYears } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { format, addMonths } from "date-fns";
 import {
   Card,
   CardContent,
@@ -12,508 +13,342 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
 import {
-  Calendar,
-  CreditCard,
-  CheckCircle,
-  AlertCircle,
-  Clock,
-  ChevronRight,
-  X,
-  Sparkle,
-  LifeBuoy,
-  LineChart,
-  Unlock,
-  Loader2,
-} from "lucide-react";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CheckIcon, Loader2, CreditCard } from "lucide-react";
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("monthly");
-  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   
   // Fetch subscription info
-  const {
-    data: subscriptionData,
-    isLoading,
-    isError,
-  } = useQuery({
+  const { data: subscription, isLoading: subscriptionLoading } = useQuery({
     queryKey: ["/api/subscription"],
     enabled: !!user,
   });
   
-  // Subscribe mutation
-  const subscribeMutation = useMutation({
-    mutationFn: async (plan: "monthly" | "annual") => {
-      setIsPaymentProcessing(true);
-      
-      // Simulate payment processing delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const res = await apiRequest("POST", "/api/subscribe", { plan });
+  // Create subscription mutation
+  const createSubscriptionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/subscribe");
       return await res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Subscription successful",
-        description: "Thank you for subscribing to Serene Premium!",
+        title: "Subscription created",
+        description: "Your subscription has been successfully created.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      setIsPaymentProcessing(false);
     },
     onError: (error) => {
       toast({
-        title: "Subscription failed",
-        description: error.message || "There was a problem processing your subscription.",
+        title: "Error creating subscription",
+        description: error.message || "There was a problem creating your subscription.",
         variant: "destructive",
       });
-      setIsPaymentProcessing(false);
     },
   });
   
-  // Handle subscription
-  const handleSubscribe = () => {
-    subscribeMutation.mutate(selectedPlan);
+  // Subscription pricing
+  const pricing = {
+    monthly: {
+      price: 9.99,
+      period: "month"
+    },
+    annual: {
+      price: 89.99,
+      period: "year",
+      savings: "25%"
+    }
   };
   
-  // Helper to format date
+  // Features list
+  const features = [
+    "Unlimited journal entries",
+    "Advanced mood analytics and insights",
+    "Access to all wellness activities",
+    "Personalized recommendations",
+    "Full historical data access",
+    "Priority support"
+  ];
+  
+  // Format date for display
   const formatDate = (dateString: string) => {
-    if (!dateString) return "";
     return format(new Date(dateString), "MMMM d, yyyy");
   };
   
-  // Calculate current period dates
-  const getCurrentPeriodDates = () => {
-    const today = new Date();
-    let endDate;
-    
-    if (selectedPlan === "monthly") {
-      endDate = addMonths(today, 1);
-    } else {
-      endDate = addYears(today, 1);
+  // Calculate next billing date
+  const getNextBillingDate = () => {
+    if (subscription?.subscription?.currentPeriodEnd) {
+      return formatDate(subscription.subscription.currentPeriodEnd);
     }
     
-    return {
-      startDate: format(today, "MMMM d, yyyy"),
-      endDate: format(endDate, "MMMM d, yyyy"),
-    };
+    const today = new Date();
+    return format(addMonths(today, 1), "MMMM d, yyyy");
   };
   
-  // Plans data
-  const plans = [
-    {
-      id: "monthly",
-      name: "Monthly",
-      price: "$9.99",
-      billingPeriod: "per month",
-      benefits: [
-        "Unlimited journal entries",
-        "Full access to all activities",
-        "Advanced mood analytics",
-        "Cancel anytime",
-      ],
-      mostPopular: false,
-    },
-    {
-      id: "annual",
-      name: "Annual",
-      price: "$89.99",
-      billingPeriod: "per year",
-      benefits: [
-        "All Monthly plan features",
-        "Save 25% compared to monthly",
-        "Priority customer support",
-        "Export journal data",
-      ],
-      mostPopular: true,
-    },
-  ];
-  
-  // Calculate trial days left
-  const getTrialDaysLeft = () => {
-    if (!user?.trialEndDate) return 0;
+  // Get subscription status text
+  const getSubscriptionStatus = () => {
+    if (!user) return "";
     
+    if (user.isSubscribed) {
+      return "Active";
+    } else if (user.isInTrial) {
+      return "Free Trial";
+    } else {
+      return "Expired";
+    }
+  };
+  
+  // Get remaining trial days
+  const getRemainingTrialDays = () => {
+    if (!user || !user.trialEndDate) return 0;
+    
+    const trialEnd = new Date(user.trialEndDate);
     const today = new Date();
-    const endDate = new Date(user.trialEndDate);
-    const diffTime = endDate.getTime() - today.getTime();
+    const diffTime = trialEnd.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    return diffDays > 0 ? diffDays : 0;
+    return Math.max(0, diffDays);
   };
   
-  const trialDaysLeft = getTrialDaysLeft();
-  const { startDate, endDate } = getCurrentPeriodDates();
+  // Handle subscription button click
+  const handleSubscribe = () => {
+    setConfirmDialogOpen(true);
+  };
   
-  // Show subscription status based on user data
-  const SubscriptionStatus = () => {
-    if (isLoading) {
-      return (
-        <div className="flex justify-center py-8">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      );
-    }
-    
-    if (isError) {
-      return (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            Unable to load subscription information. Please try again later.
-          </AlertDescription>
-        </Alert>
-      );
-    }
-    
-    if (user?.isSubscribed && subscriptionData?.subscription) {
-      const { subscription } = subscriptionData;
-      
-      return (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Active Subscription</CardTitle>
-                <CardDescription>Your subscription is currently active</CardDescription>
-              </div>
-              <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Plan</div>
-                <div className="font-medium">{subscription.plan === "monthly" ? "Monthly" : "Annual"} Plan</div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Price</div>
-                <div className="font-medium">
-                  {subscription.plan === "monthly" ? "$9.99 / month" : "$89.99 / year"}
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Current Period Start</div>
-                <div className="font-medium">{formatDate(subscription.currentPeriodStart)}</div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Current Period End</div>
-                <div className="font-medium">{formatDate(subscription.currentPeriodEnd)}</div>
-              </div>
-            </div>
-            
-            <Separator />
-            
-            <div className="space-y-2">
-              <div className="text-sm text-muted-foreground">Payment Method</div>
-              <div className="flex items-center">
-                <CreditCard className="h-4 w-4 mr-2 text-primary" />
-                <span className="font-medium">•••• •••• •••• 4242</span>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full">Manage Subscription</Button>
-          </CardFooter>
-        </Card>
-      );
-    }
-    
-    if (user?.isInTrial) {
-      return (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Free Trial</CardTitle>
-                <CardDescription>You're currently on a free trial</CardDescription>
-              </div>
-              <Badge className="bg-blue-500 hover:bg-blue-600">Trial</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Days remaining</span>
-                <span className="font-medium">{trialDaysLeft} days</span>
-              </div>
-              <Progress value={(trialDaysLeft / 30) * 100} />
-            </div>
-            
-            <Alert>
-              <Clock className="h-4 w-4" />
-              <AlertTitle>Trial ending soon</AlertTitle>
-              <AlertDescription>
-                Your free trial will end on {formatDate(user.trialEndDate)}. Subscribe to continue using all features.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" onClick={() => window.scrollTo(0, document.body.scrollHeight)}>
-              Subscribe Now
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardFooter>
-        </Card>
-      );
-    }
-    
-    // Trial expired
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Trial Expired</CardTitle>
-              <CardDescription>Your free trial has ended</CardDescription>
-            </div>
-            <Badge variant="destructive">Expired</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Access Limited</AlertTitle>
-            <AlertDescription>
-              Your free trial has expired. Subscribe now to regain access to all features.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-        <CardFooter>
-          <Button className="w-full" onClick={() => window.scrollTo(0, document.body.scrollHeight)}>
-            Subscribe Now
-            <ChevronRight className="ml-2 h-4 w-4" />
-          </Button>
-        </CardFooter>
-      </Card>
-    );
+  // Confirm subscription
+  const confirmSubscription = () => {
+    createSubscriptionMutation.mutate();
+    setConfirmDialogOpen(false);
   };
   
   return (
     <Layout>
-      <div className="space-y-8">
-        {/* Header */}
+      <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Subscription</h1>
           <p className="text-muted-foreground">
-            Manage your subscription and payment details
+            Manage your subscription and billing information
           </p>
         </div>
         
-        {/* Subscription Status Card */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Subscription Status</h2>
-          <SubscriptionStatus />
-        </div>
-        
-        {/* Show subscription plans if not already subscribed */}
-        {(!user?.isSubscribed || isLoading) && (
-          <div className="space-y-4 pt-6">
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold">Choose a Plan</h2>
-              <p className="text-muted-foreground">
-                Select the plan that works best for you
-              </p>
-            </div>
-            
-            <Tabs defaultValue="plans" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="plans">Subscription Plans</TabsTrigger>
-                <TabsTrigger value="features">Features Comparison</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="plans" className="space-y-4 pt-4">
-                <RadioGroup
-                  value={selectedPlan}
-                  onValueChange={(value) => setSelectedPlan(value as "monthly" | "annual")}
-                  className="grid gap-4 md:grid-cols-2"
-                >
-                  {plans.map((plan) => (
-                    <Label
-                      key={plan.id}
-                      htmlFor={plan.id}
-                      className={`relative flex cursor-pointer flex-col rounded-lg border bg-card p-4 ${
-                        selectedPlan === plan.id ? "border-primary" : "hover:border-primary/50"
-                      }`}
-                    >
-                      {plan.mostPopular && (
-                        <div className="absolute -top-2 -right-2">
-                          <Badge className="bg-primary">Most Popular</Badge>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-start space-x-2">
-                        <RadioGroupItem value={plan.id} id={plan.id} />
-                        <div className="space-y-2">
-                          <div className="font-medium">{plan.name} Plan</div>
-                          <div className="text-sm text-muted-foreground">{plan.billingPeriod}</div>
-                          <div className="flex items-baseline">
-                            <span className="text-3xl font-bold">{plan.price}</span>
-                            <span className="text-sm text-muted-foreground ml-1">{plan.billingPeriod}</span>
-                          </div>
-                          
-                          <ul className="space-y-2 mt-4">
-                            {plan.benefits.map((benefit, i) => (
-                              <li key={i} className="flex text-sm">
-                                <CheckCircle className="h-4 w-4 mr-2 text-green-500 flex-shrink-0 mt-0.5" />
-                                <span>{benefit}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </Label>
-                  ))}
-                </RadioGroup>
-                
-                <Card className="mt-6">
-                  <CardHeader>
-                    <CardTitle>Payment Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>{selectedPlan === "monthly" ? "Monthly" : "Annual"} Plan</span>
-                        <span>{selectedPlan === "monthly" ? "$9.99" : "$89.99"}</span>
-                      </div>
-                      
-                      {selectedPlan === "annual" && (
-                        <div className="flex justify-between text-green-500">
-                          <span>Savings (vs. monthly)</span>
-                          <span>$29.89</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <Separator />
-                    
-                    <div className="flex justify-between font-medium">
-                      <span>Total</span>
-                      <span>{selectedPlan === "monthly" ? "$9.99" : "$89.99"}</span>
-                    </div>
-                    
-                    <div className="text-sm text-muted-foreground">
-                      <div>Billing period: {startDate} to {endDate}</div>
-                      {selectedPlan === "monthly" ? (
-                        <div>Your subscription will renew automatically every month.</div>
-                      ) : (
-                        <div>Your subscription will renew automatically every year.</div>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button 
-                      className="w-full"
-                      onClick={handleSubscribe}
-                      disabled={isPaymentProcessing}
-                    >
-                      {isPaymentProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>Subscribe Now</>
-                      )}
-                    </Button>
-                  </CardFooter>
-                </Card>
-                
-                <div className="flex items-start text-sm text-muted-foreground bg-muted p-4 rounded-lg">
-                  <LifeBuoy className="h-5 w-5 mr-2 flex-shrink-0" />
+        {/* Subscription Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Subscription Status</CardTitle>
+            <CardDescription>
+              Your current subscription plan and status
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {subscriptionLoading ? (
+              <div className="flex items-center">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <span>Loading subscription information...</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <p>Need help? You can cancel your subscription at any time from your account settings. If you have any questions, please contact our support team.</p>
+                    <span className="text-muted-foreground text-sm">Status</span>
+                    <p className="font-medium">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${
+                        user?.isSubscribed 
+                          ? "bg-green-500" 
+                          : user?.isInTrial 
+                          ? "bg-amber-500" 
+                          : "bg-red-500"
+                      }`}></span>
+                      {getSubscriptionStatus()}
+                    </p>
                   </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="features" className="pt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Features Comparison</CardTitle>
-                    <CardDescription>See what's included in each plan</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-3 px-4">Feature</th>
-                            <th className="text-center py-3 px-4">Free Trial</th>
-                            <th className="text-center py-3 px-4">Premium</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Journal Entries</td>
-                            <td className="text-center py-3 px-4">Limited (10)</td>
-                            <td className="text-center py-3 px-4">Unlimited</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Mood Tracking</td>
-                            <td className="text-center py-3 px-4"><CheckCircle className="h-4 w-4 text-green-500 mx-auto" /></td>
-                            <td className="text-center py-3 px-4"><CheckCircle className="h-4 w-4 text-green-500 mx-auto" /></td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Basic Analytics</td>
-                            <td className="text-center py-3 px-4"><CheckCircle className="h-4 w-4 text-green-500 mx-auto" /></td>
-                            <td className="text-center py-3 px-4"><CheckCircle className="h-4 w-4 text-green-500 mx-auto" /></td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Advanced Analytics</td>
-                            <td className="text-center py-3 px-4"><X className="h-4 w-4 text-gray-400 mx-auto" /></td>
-                            <td className="text-center py-3 px-4"><CheckCircle className="h-4 w-4 text-green-500 mx-auto" /></td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Wellness Activities</td>
-                            <td className="text-center py-3 px-4">Basic (2)</td>
-                            <td className="text-center py-3 px-4">All Activities</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Writing Prompts</td>
-                            <td className="text-center py-3 px-4">Limited</td>
-                            <td className="text-center py-3 px-4">Extended Library</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Data Export</td>
-                            <td className="text-center py-3 px-4"><X className="h-4 w-4 text-gray-400 mx-auto" /></td>
-                            <td className="text-center py-3 px-4"><CheckCircle className="h-4 w-4 text-green-500 mx-auto" /></td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3 px-4">Priority Support</td>
-                            <td className="text-center py-3 px-4"><X className="h-4 w-4 text-gray-400 mx-auto" /></td>
-                            <td className="text-center py-3 px-4"><CheckCircle className="h-4 w-4 text-green-500 mx-auto" /></td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  
+                  {user?.isSubscribed && (
+                    <div>
+                      <span className="text-muted-foreground text-sm">Next billing date</span>
+                      <p className="font-medium">{getNextBillingDate()}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
+                  )}
+                  
+                  {user?.isInTrial && (
+                    <div>
+                      <span className="text-muted-foreground text-sm">Trial ends in</span>
+                      <p className="font-medium">{getRemainingTrialDays()} days</p>
+                    </div>
+                  )}
+                  
+                  {user?.isSubscribed && (
+                    <div>
+                      <span className="text-muted-foreground text-sm">Plan</span>
+                      <p className="font-medium">
+                        {subscription?.subscription?.plan === "annual" 
+                          ? "Annual Plan ($89.99/year)" 
+                          : "Monthly Plan ($9.99/month)"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                {!user?.isSubscribed && (
+                  <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                    <p className="text-amber-800 dark:text-amber-300 text-sm">
+                      {user?.isInTrial 
+                        ? `Your free trial will expire in ${getRemainingTrialDays()} days. Subscribe now to continue enjoying all features.` 
+                        : "Your trial has expired. Subscribe to regain access to all features."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+          {!user?.isSubscribed && (
+            <CardFooter>
+              <Button 
+                onClick={handleSubscribe}
+                disabled={createSubscriptionMutation.isPending}
+              >
+                {createSubscriptionMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    {user?.isInTrial ? "Upgrade Now" : "Subscribe Now"}
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+        
+        {/* Subscription Plans */}
+        {!user?.isSubscribed && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Choose a Plan</CardTitle>
+              <CardDescription>
+                Select the subscription plan that works best for you
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Tabs 
+                defaultValue="monthly" 
+                value={selectedPlan}
+                onValueChange={(value) => setSelectedPlan(value as "monthly" | "annual")}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                  <TabsTrigger value="annual">Annual <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 rounded-full">Save 25%</span></TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="monthly" className="mt-6">
+                  <div className="flex justify-between items-center p-6 border rounded-lg">
+                    <div>
+                      <h3 className="text-xl font-bold">${pricing.monthly.price}</h3>
+                      <p className="text-muted-foreground">per {pricing.monthly.period}</p>
+                    </div>
+                    <Button onClick={handleSubscribe}>Subscribe Monthly</Button>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="annual" className="mt-6">
+                  <div className="flex justify-between items-center p-6 border rounded-lg border-primary/20 bg-primary/5">
+                    <div>
+                      <h3 className="text-xl font-bold">${pricing.annual.price}</h3>
+                      <p className="text-muted-foreground">per {pricing.annual.period}</p>
+                      <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                        Save {pricing.annual.savings} compared to monthly
+                      </p>
+                    </div>
+                    <Button onClick={handleSubscribe}>Subscribe Yearly</Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
+              
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4">What's included:</h3>
+                <ul className="space-y-2">
+                  {features.map((feature, index) => (
+                    <li key={index} className="flex items-start">
+                      <CheckIcon className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Payment Method (Simulated) */}
+        {user?.isSubscribed && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Method</CardTitle>
+              <CardDescription>
+                Your saved payment information
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center border p-4 rounded-md">
+                <CreditCard className="h-5 w-5 mr-4 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">Visa ending in 4242</p>
+                  <p className="text-sm text-muted-foreground">Expires 12/25</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
+      
+      {/* Subscription Confirmation Dialog */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Subscription</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to subscribe to the {selectedPlan === "monthly" ? "Monthly" : "Annual"} plan 
+              at ${selectedPlan === "monthly" ? pricing.monthly.price : pricing.annual.price} 
+              per {selectedPlan === "monthly" ? "month" : "year"}.
+              
+              <div className="mt-4 p-4 bg-background border rounded-md">
+                <p className="text-sm text-foreground">
+                  <strong>Note:</strong> This is a simulated transaction for demonstration purposes. 
+                  No actual payment will be processed.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSubscription}>
+              Confirm Subscription
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

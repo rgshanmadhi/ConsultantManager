@@ -1,8 +1,10 @@
 import { 
-  User, InsertUser, 
-  Entry, InsertEntry,
-  Subscription, InsertSubscription 
+  users, type User, type InsertUser, 
+  entries, type Entry, type InsertEntry,
+  subscriptions, type Subscription, type InsertSubscription 
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, and, lt, gte } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need

@@ -1,86 +1,74 @@
-import { createContext, ReactNode, useContext, useState, useEffect } from "react";
-import { useMutation, UseMutationResult } from "@tanstack/react-query";
-import { User, InsertUser } from "@shared/schema";
-import * as localStorageService from "@/lib/localStorageService";
-import CryptoJS from 'crypto-js';
+import { createContext, ReactNode, useContext } from "react";
+import {
+  useQuery,
+  useMutation,
+  UseMutationResult,
+} from "@tanstack/react-query";
+import { insertUserSchema, User } from "@shared/schema";
+import { apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+// Create validation schema for login (subset of user schema)
+const loginSchema = insertUserSchema.pick({
+  username: true,
+  password: true,
+});
+
+type LoginData = z.infer<typeof loginSchema>;
+type RegisterData = z.infer<typeof insertUserSchema>;
+
+// Extended user type with additional subscription fields
+interface UserWithSubscription extends Omit<User, "password"> {
+  isSubscribed: boolean;
+  isInTrial: boolean;
+  trialEndDate: string | null;
+}
 
 type AuthContextType = {
-  user: User | null;
+  user: UserWithSubscription | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<User, Error, LoginData>;
+  loginMutation: UseMutationResult<UserWithSubscription, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<User, Error, InsertUser>;
-  isUserInTrial: boolean;
-};
-
-type LoginData = {
-  username: string;
-  password: string;
-};
-
-// Simple hash function to replace the server-side hashing
-const hashPassword = (password: string): string => {
-  return CryptoJS.SHA256(password).toString();
+  registerMutation: UseMutationResult<UserWithSubscription, Error, RegisterData>;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isUserInTrial, setIsUserInTrial] = useState(false);
-
-  // Initialize local storage and check for current user
-  useEffect(() => {
-    try {
-      // Initialize the local storage with demo data if needed
-      localStorageService.initLocalStorage();
-      
-      // Get current user from local storage
-      const currentUser = localStorageService.getCurrentUser();
-      setUser(currentUser);
-      
-      // Check if user is in trial
-      if (currentUser) {
-        setIsUserInTrial(localStorageService.isUserInTrialPeriod(currentUser.id));
+  
+  const {
+    data: user,
+    error,
+    isLoading,
+  } = useQuery<UserWithSubscription, Error>({
+    queryKey: ["/api/user"],
+    queryFn: async () => {
+      try {
+        const res = await apiRequest("GET", "/api/user");
+        return await res.json();
+      } catch (error) {
+        // Return null for 401 (unauthorized) without throwing
+        if (error instanceof Response && error.status === 401) {
+          return null;
+        }
+        throw error;
       }
-    } catch (e) {
-      setError(e instanceof Error ? e : new Error('An unknown error occurred'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+  });
 
-  // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      // Simulating network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const hashedPassword = hashPassword(credentials.password);
-      const user = localStorageService.getUserByUsername(credentials.username);
-      
-      if (!user || user.password !== hashedPassword) {
-        throw new Error('Invalid username or password');
-      }
-      
-      // Set current user in local storage
-      localStorageService.setCurrentUser(user);
-      
-      // Check if user is in trial
-      setIsUserInTrial(localStorageService.isUserInTrialPeriod(user.id));
-      
-      return user;
+      const res = await apiRequest("POST", "/api/login", credentials);
+      return await res.json();
     },
-    onSuccess: (loggedInUser: User) => {
-      setUser(loggedInUser);
+    onSuccess: (user) => {
+      queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Login successful",
-        description: `Welcome back, ${loggedInUser.name || loggedInUser.username}!`,
+        description: `Welcome back, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
@@ -92,74 +80,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Register mutation
   const registerMutation = useMutation({
-    mutationFn: async (userData: InsertUser) => {
-      // Simulating network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Check if username already exists
-      const existingUsername = localStorageService.getUserByUsername(userData.username);
-      if (existingUsername) {
-        throw new Error('Username already exists');
-      }
-      
-      // Check if email already exists
-      const existingEmail = localStorageService.getUserByEmail(userData.email);
-      if (existingEmail) {
-        throw new Error('Email already exists');
-      }
-      
-      // Hash password
-      const hashedPassword = hashPassword(userData.password);
-      
-      // Create user
-      const newUser = localStorageService.createUser({
-        ...userData,
-        password: hashedPassword,
-        isSubscribed: false,
-        trialEndDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
-      });
-      
-      // Set current user in local storage
-      localStorageService.setCurrentUser(newUser);
-      
-      // User is in trial by default
-      setIsUserInTrial(true);
-      
-      return newUser;
+    mutationFn: async (userData: RegisterData) => {
+      const res = await apiRequest("POST", "/api/register", userData);
+      return await res.json();
     },
-    onSuccess: (newUser: User) => {
-      setUser(newUser);
+    onSuccess: (user) => {
+      queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Registration successful",
-        description: `Welcome to Serene, ${newUser.name || newUser.username}!`,
+        description: `Welcome to Serene, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Registration failed",
-        description: error.message || "Could not create your account",
+        description: error.message || "Please check your information and try again",
         variant: "destructive",
       });
     },
   });
 
-  // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Simulating network delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Clear current user from local storage
-      localStorageService.setCurrentUser(null);
+      await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
-      setUser(null);
-      setIsUserInTrial(false);
+      queryClient.setQueryData(["/api/user"], null);
       toast({
         title: "Logged out",
-        description: "You have been successfully logged out.",
+        description: "You have been successfully logged out",
       });
     },
     onError: (error: Error) => {
@@ -174,13 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: user || null,
         isLoading,
         error,
         loginMutation,
         logoutMutation,
         registerMutation,
-        isUserInTrial,
       }}
     >
       {children}
